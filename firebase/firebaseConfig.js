@@ -1,21 +1,28 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+// For React Native, we need to import the dotenv configuration
+import { Platform } from 'react-native';
+
+// In React Native, importing environment variables requires a different approach
+// For Expo, install react-native-dotenv package
+// For pure React Native, install react-native-config
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "AIzaSyAaym48NkjzEqj_gqhRcR1n3UZoQOBTuB4",
-    authDomain: "budgetwise-26aa9.firebaseapp.com",
-    projectId: "budgetwise-26aa9",
-    storageBucket: "budgetwise-26aa9.firebasestorage.app",
-    messagingSenderId: "1064316426559",
-    appId: "1:1064316426559:web:0f748ec0e0c587e0775b8a",
-    measurementId: "G-CVNJHPNH2Q"
+    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.REACT_APP_FIREBASE_APP_ID,
+    measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// Only use analytics on web platforms
+const analytics = Platform.OS === 'web' ? getAnalytics(app) : null;
+
+export default app;
