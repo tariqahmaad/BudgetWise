@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, TextInput, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, TextInput, StyleSheet, Animated, Platform } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CustomInput = ({
@@ -11,15 +11,11 @@ const CustomInput = ({
     keyboardType = 'default',
     style,
     onFocus,
+    rightIcon,
 }) => {
-    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
     const glowAnimation = useRef(new Animated.Value(0)).current;
     const scaleAnimation = useRef(new Animated.Value(1)).current;
-
-    const togglePasswordVisibility = () => {
-        setIsPasswordVisible(!isPasswordVisible);
-    };
 
     const handleFocus = () => {
         setIsFocused(true);
@@ -76,20 +72,12 @@ const CustomInput = ({
                 placeholderTextColor="#9CA3AF"
                 value={value}
                 onChangeText={onChangeText}
-                secureTextEntry={secureTextEntry && !isPasswordVisible}
+                secureTextEntry={secureTextEntry}
                 keyboardType={keyboardType}
                 onFocus={handleFocus}
                 onBlur={handleBlur}
             />
-            {secureTextEntry && (
-                <TouchableOpacity onPress={togglePasswordVisibility} style={styles.rightIcon}>
-                    <Icon
-                        name={isPasswordVisible ? 'eye-off' : 'eye'}
-                        size={20}
-                        color={isFocused ? '#60A5FA' : '#9CA3AF'}
-                    />
-                </TouchableOpacity>
-            )}
+            {rightIcon}
         </Animated.View>
     );
 };

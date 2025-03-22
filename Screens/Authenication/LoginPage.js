@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     StyleSheet,
     Text,
@@ -10,12 +10,16 @@ import {
     ScrollView,
     useWindowDimensions,
     ImageBackground,
-    Keyboard
+    Keyboard,
+    Image,
+    Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomInput from '../../Components/InputField/CustomInput';
 import PrimaryButton from '../../Components/Buttons/PrimaryButton';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import app from '../../firebase/firebaseConfig';
 
 const SocialButton = ({ icon, title, onPress, backgroundColor }) => {
     const { width } = useWindowDimensions();
@@ -35,13 +39,84 @@ const SocialButton = ({ icon, title, onPress, backgroundColor }) => {
 const LoginPage = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const { height } = useWindowDimensions();
     const scrollViewRef = useRef(null);
+    const auth = getAuth(app);
 
-    const handleLogin = () => {
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                console.log('User is signed in:', user.email);
+                navigation.navigate('Home');
+            } else {
+                // User is signed out
+                console.log('User is signed out');
+            }
+        });
+
+        // Cleanup subscription
+        return unsubscribe;
+    }, [auth, navigation]);
+
+    const togglePasswordVisibility = () => {
+        setIsPasswordVisible(!isPasswordVisible);
+    };
+
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Alert.alert('Error', 'Please enter a valid email address');
+            return;
+        }
+
         Keyboard.dismiss();
-        // Implement login logic here
-        console.log('Login pressed with:', email, password);
+        setIsLoading(true);
+
+        try {
+            console.log('Attempting login with email:', email);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+            console.log('Login successful:', user.email);
+            // Navigation will be handled by the auth state listener
+        } catch (error) {
+            console.error('Login error:', error);
+            let errorMessage = 'An error occurred during login';
+
+            switch (error.code) {
+                case 'auth/invalid-email':
+                    errorMessage = 'Invalid email address';
+                    break;
+                case 'auth/user-disabled':
+                    errorMessage = 'This account has been disabled';
+                    break;
+                case 'auth/user-not-found':
+                    errorMessage = 'No account found with this email';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Incorrect password';
+                    break;
+                case 'auth/too-many-requests':
+                    errorMessage = 'Too many failed attempts. Please try again later';
+                    break;
+                case 'auth/network-request-failed':
+                    errorMessage = 'Network error. Please check your connection';
+                    break;
+                default:
+                    errorMessage = error.message;
+            }
+            Alert.alert('Login Error', errorMessage);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const scrollToInput = (y) => {
@@ -54,7 +129,7 @@ const LoginPage = ({ navigation }) => {
     return (
         <SafeAreaView style={styles.safeArea} edges={['bottom']}>
             <ImageBackground
-                // source={require('../../assets/images/background.jpg')}
+                source={require('../../assets/brand-logo.png')}
                 style={styles.backgroundImage}
             >
                 <View style={styles.overlay}>
@@ -75,8 +150,10 @@ const LoginPage = ({ navigation }) => {
                         >
                             <View style={styles.formContainer}>
                                 <View style={styles.logoContainer}>
-                                    <Icon name="wallet" size={48} color="#FDB347" />
-                                    <Text style={styles.title}>BudgetWise</Text>
+                                    {/* <Icon name="wallet" size={80} color="#FDB347" />
+                                    <Text style={styles.title}>BudgetWise</Text> */}
+                                    <Image source={require('../../assets/brand-logo.png')} style={styles.logo} />
+                                    {/* <Text style={styles.title}>BudgetWise</Text> */}
                                 </View>
                                 <Text style={styles.subtitle}>Welcome back! Please sign in to continue.</Text>
 
@@ -119,9 +196,18 @@ const LoginPage = ({ navigation }) => {
                                     placeholder="••••••••"
                                     value={password}
                                     onChangeText={setPassword}
-                                    secureTextEntry
+                                    secureTextEntry={!isPasswordVisible}
                                     leftIcon="lock-outline"
                                     onFocus={() => scrollToInput(300)}
+                                    rightIcon={
+                                        <TouchableOpacity onPress={togglePasswordVisibility} style={styles.rightIcon}>
+                                            <Icon
+                                                name={isPasswordVisible ? 'eye-off' : 'eye'}
+                                                size={20}
+                                                color="#9CA3AF"
+                                            />
+                                        </TouchableOpacity>
+                                    }
                                 />
 
                                 <TouchableOpacity
@@ -132,9 +218,10 @@ const LoginPage = ({ navigation }) => {
                                 </TouchableOpacity>
 
                                 <PrimaryButton
-                                    title="Sign In"
+                                    title={isLoading ? "Signing in..." : "Sign In"}
                                     onPress={handleLogin}
                                     style={styles.loginButton}
+                                    disabled={isLoading}
                                 />
 
                                 <View style={styles.signupContainer}>
@@ -186,8 +273,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 16,
-        marginTop: Platform.OS === 'ios' ? 20 : 0,
+        marginBottom: 8,
+        marginTop: Platform.OS === 'ios' ? 10 : 0,
     },
     title: {
         fontSize: Platform.OS === 'web' ? 32 : 28,
@@ -199,14 +286,14 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#6B7280',
         textAlign: 'center',
-        marginBottom: '8%',
+        marginBottom: '6%',
     },
     socialButtonsContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: '6%',
+        marginBottom: '3%',
         flexWrap: 'wrap',
-        gap: 12,
+        gap: 8,
     },
     socialButtonsStacked: {
         flexDirection: 'column',
@@ -243,7 +330,7 @@ const styles = StyleSheet.create({
     dividerContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginVertical: '6%',
+        marginVertical: '2%',
     },
     dividerLine: {
         flex: 1,
@@ -258,27 +345,27 @@ const styles = StyleSheet.create({
     label: {
         fontSize: Platform.OS === 'web' ? 16 : 14,
         color: '#9CA3AF',
-        marginTop: '5%',
-        marginBottom: 8,
+        marginTop: '2%',
+        marginBottom: 4,
     },
     forgotPassword: {
         alignSelf: 'flex-end',
-        marginTop: 8,
-        marginBottom: '6%',
+        marginTop: 4,
+        marginBottom: '3%',
     },
     forgotPasswordText: {
         color: '#9CA3AF',
         fontSize: Platform.OS === 'web' ? 14 : 12,
     },
     loginButton: {
-        marginTop: 8,
+        marginTop: 4,
     },
     signupContainer: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: '6%',
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+        marginTop: '5%',
+        paddingBottom: Platform.OS === 'ios' ? 10 : 0,
     },
     signupText: {
         color: '#9CA3AF',
@@ -288,5 +375,14 @@ const styles = StyleSheet.create({
         color: '#FDB347',
         fontSize: Platform.OS === 'web' ? 14 : 12,
         fontWeight: '600',
+    },
+    rightIcon: {
+        padding: 4,
+    },
+    logo: {
+        width: 300,
+        height: 200,
+        resizeMode: 'contain',
+        marginBottom: '4%',
     },
 });
