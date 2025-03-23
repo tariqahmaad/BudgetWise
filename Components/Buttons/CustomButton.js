@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     fontSize: 16, // Standardized font size
     fontWeight: "bold",
     textAlign: "center",
-    fontFamily: "Poppins",
+    fontFamily: "Poppins-Regular",
   },
 });
 

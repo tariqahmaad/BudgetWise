@@ -56,9 +56,9 @@ export default function IndexPage() {
   }
 
   return (
-    <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <View style={{ flex: 1 }} onLayout={onLayoutRootView}  >
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Authentication">
+        <Stack.Navigator initialRouteName="onboarding">
           <Stack.Screen
             name="onboarding"
             component={OnboardingScreen}

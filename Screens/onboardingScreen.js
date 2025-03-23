@@ -58,7 +58,7 @@ export default function OnboardingScreen() {
           title="Continue"
           onPress={() => {
             if (isLastPage) {
-              navigation.navigate('Login');
+              navigation.navigate('Authentication');
             } else {
               onboardingRef.current.goNext(); // Use .current to access ref methods
             }
@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
     width: width * 0.8,
     fontSize: 22,
     fontWeight: "bold",
-    fontFamily: "Poppins",
+    fontFamily: "Poppins-bold",
     color: "#000",
     textAlign: "center",
     marginBottom: 10,
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#555",
     textAlign: "center",
-    fontFamily: "Poppins",
+    fontFamily: "Poppins-Regular",
     paddingHorizontal: 20,
   },
   bottomBar: {
