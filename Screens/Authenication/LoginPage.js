@@ -50,7 +50,6 @@ const LoginPage = ({ navigation }) => {
             if (user) {
                 // User is signed in
                 console.log('User is signed in:', user.email);
-                navigation.navigate('Home');
             } else {
                 // User is signed out
                 console.log('User is signed out');
@@ -59,7 +58,7 @@ const LoginPage = ({ navigation }) => {
 
         // Cleanup subscription
         return unsubscribe;
-    }, [auth, navigation]);
+    }, [auth]);
 
     const togglePasswordVisibility = () => {
         setIsPasswordVisible(!isPasswordVisible);
@@ -83,10 +82,7 @@ const LoginPage = ({ navigation }) => {
 
         try {
             console.log('Attempting login with email:', email);
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const user = userCredential.user;
-            console.log('Login successful:', user.email);
-            // Navigation will be handled by the auth state listener
+            await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
             console.error('Login error:', error);
             let errorMessage = 'An error occurred during login';

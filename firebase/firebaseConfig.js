@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 // For React Native, we need to import the dotenv configuration
 import { Platform } from 'react-native';
+import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
 
 // In React Native, importing environment variables requires a different approach
 // For Expo, install react-native-dotenv package
@@ -23,6 +24,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
 // Only use analytics on web platforms
 const analytics = Platform.OS === 'web' ? getAnalytics(app) : null;
 
