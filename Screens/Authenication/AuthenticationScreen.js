@@ -1,8 +1,11 @@
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import React from "react";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import BackButton from "../../Components/Buttons/BackButton";
 import OtherAuthenticationMethodsButton from "../../Components/Buttons/OtherAuthenticationMethodsButton";
+import InputField from "../../Components/InputField/InputField";
+import HorizontalLine from "../../Components/HorizontalLine";
+import CustomButton from "../../Components/Buttons/CustomButton";
 
 const AuthenticationScreen = () => {
   return (
@@ -12,23 +15,34 @@ const AuthenticationScreen = () => {
 
         <Text style={styles.headerText}>Sign Up</Text>
 
-        <View style={styles.otherMethods}>
-          <OtherAuthenticationMethodsButton type="Facebook" />
-          <OtherAuthenticationMethodsButton type="Google" />
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.otherMethods}>
+            <OtherAuthenticationMethodsButton type="Facebook" />
+            <OtherAuthenticationMethodsButton type="Google" />
+          </View>
+          <View style={styles.seperator}>
+            <HorizontalLine />
+            <Text style={styles.seperatorText}>Or</Text>
+            <HorizontalLine />
+          </View>
+          <View style={styles.inputFieldsContainer}>
+            <InputField title="Name" />
+            <InputField title="Surname" />
+            <InputField title="Email" />
+            <InputField title="Phone" />
+            <InputField title="Password" />
+            <Text style={styles.forgotPass}>Forgot your Password?</Text>
+          </View>
 
-        <View style={styles.seperator}>
-          <View style={styles.horizontalLine}/>
-          <Text style={styles.seperatorText}>Or</Text>
-          <View style={styles.horizontalLine}/>
-        </View>
+          <CustomButton
+            title="Sign Up"
+            onPress={() => console.log("Sign Up Button Pressed")}
+          />
 
+          <Text style={styles.someText}>Already have an account? Sign In...</Text>
 
-        
-
-
-
-
+          <View style={{ height: 25 }} />
+        </ScrollView>
       </View>
     </ScreenWrapper>
   );
@@ -67,17 +81,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 10,
   },
-  seperatorText:{
+  seperatorText: {
     color: "#A2A2A7",
     fontSize: 16,
     fontFamily: "Poppins-Regular",
     marginHorizontal: 10,
   },
-  horizontalLine:{
+  horizontalLine: {
     flex: 1,
-    height: 2,
+    height: 1.5,
     backgroundColor: "#cccccc",
-  }
-
-
+  },
+  inputFieldsContainer: {
+    marginBottom: 10,
+  },
+  someText:{
+    marginTop: 5,
+    color: "#A2A2A7",
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    textAlign: "center",
+  },
+  forgotPass: {
+    color: "#A2A2A7",
+    fontSize: 14,
+    fontFamily: "Poppins-SemiBold",
+    textAlign: "right",
+    marginTop: 0,
+  },
 });
