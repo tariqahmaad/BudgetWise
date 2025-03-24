@@ -5,7 +5,6 @@ import {
     View,
     TouchableOpacity,
     Platform,
-    Dimensions,
     KeyboardAvoidingView,
     ScrollView,
     useWindowDimensions,
@@ -20,6 +19,7 @@ import PrimaryButton from '../../Components/Buttons/PrimaryButton';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
 import app from '../../firebase/firebaseConfig';
+import { COLORS, SIZES, SHADOWS } from '../../constants/theme';
 
 const SocialButton = ({ icon, title, onPress, backgroundColor }) => {
     const { width } = useWindowDimensions();
@@ -31,7 +31,9 @@ const SocialButton = ({ icon, title, onPress, backgroundColor }) => {
             onPress={onPress}
         >
             {icon}
-            <Text style={[styles.socialButtonText, { color: backgroundColor === '#FFFFFF' ? '#1F2937' : '#FFFFFF' }]}>{title}</Text>
+            <Text style={[styles.socialButtonText, { color: backgroundColor === COLORS.white ? COLORS.text : COLORS.white }]}>
+                {title}
+            </Text>
         </TouchableOpacity>
     );
 };
@@ -48,21 +50,14 @@ const LoginPage = ({ navigation }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             if (user) {
-                // User is signed in
                 console.log('User is signed in:', user.email);
             } else {
-                // User is signed out
                 console.log('User is signed out');
             }
         });
 
-        // Cleanup subscription
         return unsubscribe;
     }, [auth]);
-
-    const togglePasswordVisibility = () => {
-        setIsPasswordVisible(!isPasswordVisible);
-    };
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -70,7 +65,6 @@ const LoginPage = ({ navigation }) => {
             return;
         }
 
-        // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             Alert.alert('Error', 'Please enter a valid email address');
@@ -81,35 +75,18 @@ const LoginPage = ({ navigation }) => {
         setIsLoading(true);
 
         try {
-            console.log('Attempting login with email:', email);
             await signInWithEmailAndPassword(auth, email, password);
         } catch (error) {
-            console.error('Login error:', error);
-            let errorMessage = 'An error occurred during login';
+            const errorMessages = {
+                'auth/invalid-email': 'Invalid email address',
+                'auth/user-disabled': 'This account has been disabled',
+                'auth/user-not-found': 'No account found with this email',
+                'auth/wrong-password': 'Incorrect password',
+                'auth/too-many-requests': 'Too many failed attempts. Please try again later',
+                'auth/network-request-failed': 'Network error. Please check your connection'
+            };
 
-            switch (error.code) {
-                case 'auth/invalid-email':
-                    errorMessage = 'Invalid email address';
-                    break;
-                case 'auth/user-disabled':
-                    errorMessage = 'This account has been disabled';
-                    break;
-                case 'auth/user-not-found':
-                    errorMessage = 'No account found with this email';
-                    break;
-                case 'auth/wrong-password':
-                    errorMessage = 'Incorrect password';
-                    break;
-                case 'auth/too-many-requests':
-                    errorMessage = 'Too many failed attempts. Please try again later';
-                    break;
-                case 'auth/network-request-failed':
-                    errorMessage = 'Network error. Please check your connection';
-                    break;
-                default:
-                    errorMessage = error.message;
-            }
-            Alert.alert('Login Error', errorMessage);
+            Alert.alert('Login Error', errorMessages[error.code] || error.message);
         } finally {
             setIsLoading(false);
         }
@@ -117,7 +94,7 @@ const LoginPage = ({ navigation }) => {
 
     const scrollToInput = (y) => {
         scrollViewRef.current?.scrollTo({
-            y: y,
+            y,
             animated: true
         });
     };
@@ -136,20 +113,14 @@ const LoginPage = ({ navigation }) => {
                     >
                         <ScrollView
                             ref={scrollViewRef}
-                            contentContainerStyle={[
-                                styles.scrollContent,
-                                { minHeight: height * 0.8 }
-                            ]}
+                            contentContainerStyle={[styles.scrollContent, { minHeight: height * 0.8 }]}
                             showsVerticalScrollIndicator={false}
                             bounces={false}
                             keyboardShouldPersistTaps="handled"
                         >
                             <View style={styles.formContainer}>
                                 <View style={styles.logoContainer}>
-                                    {/* <Icon name="wallet" size={80} color="#FDB347" />
-                                    <Text style={styles.title}>BudgetWise</Text> */}
                                     <Image source={require('../../assets/brand-logo.png')} style={styles.logo} />
-                                    {/* <Text style={styles.title}>BudgetWise</Text> */}
                                 </View>
                                 <Text style={styles.subtitle}>Welcome back! Please sign in to continue.</Text>
 
@@ -158,22 +129,22 @@ const LoginPage = ({ navigation }) => {
                                     useWindowDimensions().width < 380 && styles.socialButtonsStacked
                                 ]}>
                                     <SocialButton
-                                        icon={<Icon name="facebook" size={24} color="#FFFFFF" style={styles.socialIcon} />}
+                                        icon={<Icon name="facebook" size={SIZES.socialIcon} color={COLORS.white} style={styles.socialIcon} />}
                                         title="Facebook"
                                         onPress={() => console.log('Facebook login')}
-                                        backgroundColor="#1877F2"
+                                        backgroundColor={COLORS.social.facebook}
                                     />
                                     <SocialButton
-                                        icon={<Icon name="google" size={24} color="#DB4437" style={styles.socialIcon} />}
+                                        icon={<Icon name="google" size={SIZES.socialIcon} color={COLORS.social.google} style={styles.socialIcon} />}
                                         title="Google"
                                         onPress={() => console.log('Google login')}
-                                        backgroundColor="#FFFFFF"
+                                        backgroundColor={COLORS.white}
                                     />
                                 </View>
 
                                 <View style={styles.dividerContainer}>
                                     <View style={styles.dividerLine} />
-                                    <Text style={styles.dividerText}>Or</Text>
+                                    <Text style={styles.dividerText}>OR</Text>
                                     <View style={styles.dividerLine} />
                                 </View>
 
@@ -196,11 +167,11 @@ const LoginPage = ({ navigation }) => {
                                     leftIcon="lock-outline"
                                     onFocus={() => scrollToInput(300)}
                                     rightIcon={
-                                        <TouchableOpacity onPress={togglePasswordVisibility} style={styles.rightIcon}>
+                                        <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={styles.rightIcon}>
                                             <Icon
                                                 name={isPasswordVisible ? 'eye-off' : 'eye'}
-                                                size={20}
-                                                color="#9CA3AF"
+                                                size={SIZES.inputIcon}
+                                                color={COLORS.textTertiary}
                                             />
                                         </TouchableOpacity>
                                     }
@@ -208,7 +179,7 @@ const LoginPage = ({ navigation }) => {
 
                                 <TouchableOpacity
                                     style={styles.forgotPassword}
-                                    onPress={() => navigation.navigate('ForgotPassword')}
+                                    onPress={() => navigation.navigate('Forgot')}
                                 >
                                     <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                                 </TouchableOpacity>
@@ -259,8 +230,8 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === 'ios' ? 100 : 50,
     },
     formContainer: {
-        paddingHorizontal: 24,
-        paddingVertical: Platform.OS === 'ios' ? 20 : 24,
+        paddingHorizontal: SIZES.padding.xxlarge,
+        paddingVertical: Platform.OS === 'ios' ? 20 : SIZES.padding.xxlarge,
         width: '100%',
         maxWidth: 500,
         alignSelf: 'center',
@@ -269,18 +240,12 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 8,
+        marginBottom: SIZES.padding.small,
         marginTop: Platform.OS === 'ios' ? 10 : 0,
     },
-    title: {
-        fontSize: Platform.OS === 'web' ? 32 : 28,
-        fontWeight: '700',
-        color: '#1F2937',
-        marginLeft: 12,
-    },
     subtitle: {
-        fontSize: 16,
-        color: '#6B7280',
+        fontSize: SIZES.font.large,
+        color: COLORS.textSecondary,
         textAlign: 'center',
         marginBottom: '6%',
     },
@@ -289,7 +254,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         marginBottom: '3%',
         flexWrap: 'wrap',
-        gap: 8,
+        gap: SIZES.padding.medium,
     },
     socialButtonsStacked: {
         flexDirection: 'column',
@@ -299,29 +264,20 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: Platform.OS === 'ios' ? 12 : 10,
-        paddingHorizontal: 16,
+        paddingHorizontal: SIZES.padding.xlarge,
         borderRadius: 12,
         ...Platform.select({
-            ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 4,
-            },
-            android: {
-                elevation: 3,
-            },
-            web: {
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            },
+            ios: SHADOWS.small,
+            android: { elevation: 3 },
+            web: { boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
         }),
     },
     socialIcon: {
-        marginRight: 8,
+        marginRight: SIZES.padding.medium,
     },
     socialButtonText: {
-        fontSize: Platform.OS === 'web' ? 16 : 14,
-        color: '#1F2937',
+        fontSize: Platform.OS === 'web' ? SIZES.font.large : SIZES.font.medium,
+        color: COLORS.text,
     },
     dividerContainer: {
         flexDirection: 'row',
@@ -331,16 +287,16 @@ const styles = StyleSheet.create({
     dividerLine: {
         flex: 1,
         height: 1,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: COLORS.divider,
     },
     dividerText: {
-        color: '#9CA3AF',
-        paddingHorizontal: 16,
-        fontSize: 14,
+        color: COLORS.textTertiary,
+        paddingHorizontal: SIZES.padding.xlarge,
+        fontSize: SIZES.font.medium,
     },
     label: {
-        fontSize: Platform.OS === 'web' ? 16 : 14,
-        color: '#9CA3AF',
+        fontSize: Platform.OS === 'web' ? SIZES.font.large : SIZES.font.medium,
+        color: COLORS.textTertiary,
         marginTop: '2%',
         marginBottom: 4,
     },
@@ -350,8 +306,8 @@ const styles = StyleSheet.create({
         marginBottom: '3%',
     },
     forgotPasswordText: {
-        color: '#9CA3AF',
-        fontSize: Platform.OS === 'web' ? 14 : 12,
+        color: COLORS.textTertiary,
+        fontSize: Platform.OS === 'web' ? SIZES.font.medium : SIZES.font.small,
     },
     loginButton: {
         marginTop: 4,
@@ -364,16 +320,16 @@ const styles = StyleSheet.create({
         paddingBottom: Platform.OS === 'ios' ? 10 : 0,
     },
     signupText: {
-        color: '#9CA3AF',
-        fontSize: Platform.OS === 'web' ? 14 : 12,
+        color: COLORS.textTertiary,
+        fontSize: Platform.OS === 'web' ? SIZES.font.medium : SIZES.font.small,
     },
     signupLink: {
-        color: '#FDB347',
-        fontSize: Platform.OS === 'web' ? 14 : 12,
+        color: COLORS.primary,
+        fontSize: Platform.OS === 'web' ? SIZES.font.medium : SIZES.font.small,
         fontWeight: '600',
     },
     rightIcon: {
-        padding: 4,
+        padding: SIZES.padding.small,
     },
     logo: {
         width: 300,
