@@ -1,78 +1,147 @@
-import { StyleSheet, Text, View, TextInput } from "react-native";
-import React from "react";
+import { StyleSheet, Text, View, TextInput, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
 import HorizontalLine from "../HorizontalLine";
 import Feather from '@expo/vector-icons/Feather';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { COLORS, SIZES } from "../../constants/theme";
 
-const getPlaceholder = (title) => {
-  if (title.toLowerCase() === "email") {
-    return "name@mail.com";
-  } else if (title.toLowerCase() === "password") {
-    return "password";
-  } else if (title.toLowerCase() === "phone") {
-    return "123-456-7890";
-  } else {
-    return "Enter " + title;
-  }
+// Input field configurations
+const INPUT_CONFIG = {
+  email: {
+    placeholder: "name@mail.com",
+    keyboardType: "email-address",
+    icon: "mail-outline",
+    iconType: "Ionicons",
+    autoCapitalize: "none",
+    secureTextEntry: false,
+  },
+  password: {
+    placeholder: "password",
+    keyboardType: "default",
+    icon: "lock",
+    iconType: "Feather",
+    autoCapitalize: "none",
+    secureTextEntry: true,
+  },
+  phone: {
+    placeholder: "123-456-7890",
+    keyboardType: "phone-pad",
+    icon: "phone-outline",
+    iconType: "MaterialCommunityIcons",
+    autoCapitalize: "none",
+    secureTextEntry: false,
+  },
+  name: {
+    placeholder: "Enter your name",
+    keyboardType: "default",
+    icon: "user",
+    iconType: "Feather",
+    autoCapitalize: "words",
+    secureTextEntry: false,
+  },
+  surname: {
+    placeholder: "Enter your surname",
+    keyboardType: "default",
+    icon: "user",
+    iconType: "Feather",
+    autoCapitalize: "words",
+    secureTextEntry: false,
+  },
 };
 
-const getKeyboardType = (title) => {
-  if (title.toLowerCase() === "email") {
-    return "email-address";
-  } else if (title.toLowerCase() === "phone") {
-    return "phone-pad";
-  } else {
-    return "default";
-  }
+// Icon component mapping
+const IconComponents = {
+  Ionicons,
+  Feather,
+  MaterialCommunityIcons,
 };
 
-const getSecureTextEntry = (title) => {
-  return title.toLowerCase() === "password";
+const getInputConfig = (title) => {
+  const key = title.toLowerCase();
+  return INPUT_CONFIG[key] || {
+    placeholder: `Enter ${title}`,
+    keyboardType: "default",
+    icon: "user",
+    iconType: "Feather",
+    autoCapitalize: "none",
+    secureTextEntry: false,
+  };
 };
 
-const getIconComponent = (title) => {
-  const iconColor = "#A2A2A7";
-  const iconSize = 23;
-  switch (title.toLowerCase()) {
-    case "email":
-      return <Ionicons name="mail-outline" size={iconSize} color={iconColor} style={styles.icon} />;
-    case "password":
-      return <Feather name="lock" size={iconSize} color={iconColor} style={styles.icon} />;
-    case "phone":
-      return <MaterialCommunityIcons name="phone-outline" size={iconSize} color={iconColor} style={styles.icon} />;
-    case "name":
-      return <Feather name="user" size={iconSize} color={iconColor} style={styles.icon} />;
-    case "surname":
-      return <Feather name="user" size={iconSize} color={iconColor} style={styles.icon} />;
-    default:
-      return <Feather name="user" size={iconSize} color={iconColor} style={styles.icon} />;
-  }
-};
+const InputField = ({
+  title = "title",
+  value,
+  onChangeText,
+  error,
+  onBlur,
+  onFocus,
+  showPasswordToggle,
+  onPasswordToggle,
+  ...restProps
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const config = getInputConfig(title);
+  const IconComponent = IconComponents[config.iconType];
 
-const InputField = (props) => {
-  const {
-    title = "title",
-    placeholder = getPlaceholder(title),
-    keyboardType = getKeyboardType(title),
-    secureTextEntry = getSecureTextEntry(title),
-  } = props;
+  const handleFocus = () => {
+    setIsFocused(true);
+    onFocus?.();
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    onBlur?.();
+  };
+
+  const renderIcon = () => (
+    <IconComponent
+      name={config.icon}
+      size={SIZES.inputIcon}
+      color={isFocused ? COLORS.primary : COLORS.authTextSecondary}
+      style={styles.icon}
+    />
+  );
+
+  const renderPasswordToggle = () => (
+    showPasswordToggle && (
+      <TouchableOpacity onPress={onPasswordToggle} style={styles.passwordToggle}>
+        <Feather
+          name={!restProps.secureTextEntry ? "eye-off" : "eye"}
+          size={SIZES.inputIcon}
+          color={COLORS.authTextSecondary}
+        />
+      </TouchableOpacity>
+    )
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.titleText}>{title}</Text>
-      <View style={styles.imputFieldContainer}>
-        {getIconComponent(title)}
+      <View style={[
+        styles.inputFieldContainer,
+        isFocused && styles.inputFieldContainerFocused,
+        error && styles.inputFieldContainerError
+      ]}>
+        {renderIcon()}
         <TextInput
-          placeholder={placeholder}
-          placeholderTextColor="#A2A2A7"
-          keyboardType={keyboardType}
-          secureTextEntry={secureTextEntry}
-          style={styles.InputField}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={config.placeholder}
+          placeholderTextColor={COLORS.authTextSecondary}
+          keyboardType={config.keyboardType}
+          secureTextEntry={restProps.secureTextEntry}
+          autoCapitalize={config.autoCapitalize}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          style={styles.inputField}
+          {...restProps}
         />
+        {renderPasswordToggle()}
       </View>
-      <View style={{ flexDirection: "row" }}>
-        <HorizontalLine />
+      {error && <Text style={styles.errorText}>{error}</Text>}
+      <View style={styles.horizontalLineContainer}>
+        <HorizontalLine color={error ? COLORS.error : (isFocused ? COLORS.primary : COLORS.authDivider)} />
       </View>
     </View>
   );
@@ -82,30 +151,51 @@ export default InputField;
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 15,
+    marginBottom: SIZES.padding.large,
   },
   titleText: {
-    fontSize: 16,
+    fontSize: SIZES.font.large,
     fontFamily: "Poppins-Regular",
-    color: "#1e1e2d",
+    color: COLORS.authText,
+    marginBottom: SIZES.padding.small,
   },
   icon: {
-    height: 25,
-    width: 25,
-    marginBottom: 5,
+    height: SIZES.inputIcon,
+    width: SIZES.inputIcon,
+    marginBottom: SIZES.padding.small,
     resizeMode: "center",
   },
-  imputFieldContainer: {
+  inputFieldContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
+    marginBottom: SIZES.padding.small,
+    paddingHorizontal: SIZES.padding.small,
   },
-  InputField: {
+  inputFieldContainerFocused: {
+    backgroundColor: COLORS.authBackground,
+  },
+  inputFieldContainerError: {
+    borderColor: COLORS.error,
+  },
+  inputField: {
     flex: 1,
-    fontSize: 16,
+    fontSize: SIZES.font.large,
     fontFamily: "Poppins-Regular",
-    color: "#1E1E2D",
-    marginLeft: 10,
+    color: COLORS.authText,
+    marginLeft: SIZES.padding.large,
     textAlignVertical: "center",
+  },
+  horizontalLineContainer: {
+    flexDirection: "row",
+  },
+  passwordToggle: {
+    padding: SIZES.padding.small,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: SIZES.font.small,
+    fontFamily: "Poppins-Regular",
+    marginTop: SIZES.padding.small,
   }
 });

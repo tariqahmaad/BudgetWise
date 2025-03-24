@@ -1,49 +1,146 @@
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import React from "react";
+import { ScrollView, StyleSheet, Text, View, KeyboardAvoidingView, Platform } from "react-native";
+import React, { useState } from "react";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import BackButton from "../../Components/Buttons/BackButton";
 import OtherAuthenticationMethodsButton from "../../Components/Buttons/OtherAuthenticationMethodsButton";
 import InputField from "../../Components/InputField/InputField";
 import HorizontalLine from "../../Components/HorizontalLine";
 import CustomButton from "../../Components/Buttons/CustomButton";
+import { COLORS, SIZES } from "../../constants/theme";
 
 const AuthenticationScreen = () => {
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    surname: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
+  });
+
+  const handleBackPress = () => {
+    // TODO: Implement back navigation
+    console.log("Back Button Pressed");
+  };
+
+  const handleSignUp = () => {
+    // TODO: Implement sign up logic
+    console.log("Sign Up Button Pressed");
+  };
+
+  const handleSocialAuth = (provider) => {
+    // TODO: Implement social authentication
+    console.log(`${provider} authentication pressed`);
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPasswords(!showPasswords);
+  };
+
   return (
-    <ScreenWrapper backgroundColor="#E9E9E9">
-      <View style={styles.container}>
-        <BackButton onPress={() => console.log("Back Button Pressed")} />
+    <ScreenWrapper backgroundColor={COLORS.authBackground}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.container}
+      >
+        <View style={styles.header}>
+          <BackButton onPress={handleBackPress} />
+          <Text style={styles.headerText}>Sign Up</Text>
+        </View>
 
-        <Text style={styles.headerText}>Sign Up</Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.socialAuthContainer}>
+            <View style={styles.socialAuth}>
+              <OtherAuthenticationMethodsButton
+                type="Google"
+                onPress={() => handleSocialAuth('Google')}
+              />
+              <OtherAuthenticationMethodsButton
+                type="Facebook"
+                onPress={() => handleSocialAuth('Facebook')}
+              />
+            </View>
+          </View>
 
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <View style={styles.otherMethods}>
-            <OtherAuthenticationMethodsButton type="Facebook" />
-            <OtherAuthenticationMethodsButton type="Google" />
-          </View>
-          <View style={styles.seperator}>
+          <View style={styles.separator}>
             <HorizontalLine />
-            <Text style={styles.seperatorText}>Or</Text>
+            <Text style={styles.separatorText}>Or</Text>
             <HorizontalLine />
           </View>
-          <View style={styles.inputFieldsContainer}>
-            <InputField title="Name" />
-            <InputField title="Surname" />
-            <InputField title="Email" />
-            <InputField title="Phone" />
-            <InputField title="Password" />
-            <Text style={styles.forgotPass}>Forgot your Password?</Text>
+
+          <View style={styles.form}>
+            <InputField
+              title="Name"
+              placeholder="Enter your name"
+              autoCapitalize="words"
+              value={formData.name}
+              onChangeText={(value) => handleInputChange('name', value)}
+            />
+            <InputField
+              title="Surname"
+              placeholder="Enter your surname"
+              autoCapitalize="words"
+              value={formData.surname}
+              onChangeText={(value) => handleInputChange('surname', value)}
+            />
+            <InputField
+              title="Email"
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={formData.email}
+              onChangeText={(value) => handleInputChange('email', value)}
+            />
+            <InputField
+              title="Phone"
+              placeholder="Enter your phone number"
+              keyboardType="phone-pad"
+              value={formData.phone}
+              onChangeText={(value) => handleInputChange('phone', value)}
+            />
+            <InputField
+              title="Password"
+              placeholder="Enter your password"
+              secureTextEntry={!showPasswords}
+              value={formData.password}
+              onChangeText={(value) => handleInputChange('password', value)}
+              showPasswordToggle
+              onPasswordToggle={togglePasswordVisibility}
+            />
+            <InputField
+              title="Password"
+              placeholder="Confirm your password"
+              secureTextEntry={!showPasswords}
+              value={formData.confirmPassword}
+              onChangeText={(value) => handleInputChange('confirmPassword', value)}
+            />
+
+            <Text style={styles.forgotPassword}>Forgot your Password?</Text>
           </View>
 
           <CustomButton
             title="Sign Up"
-            onPress={() => console.log("Sign Up Button Pressed")}
+            onPress={handleSignUp}
+            style={styles.signUpButton}
           />
 
-          <Text style={styles.someText}>Already have an account? Sign In...</Text>
-
-          <View style={{ height: 25 }} />
+          <Text style={styles.loginPrompt}>
+            Already have an account? <Text style={styles.loginLink}>Sign In</Text>
+          </Text>
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </ScreenWrapper>
   );
 };
@@ -53,60 +150,70 @@ export default AuthenticationScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginTop: 26,
-    marginHorizontal: 28,
   },
-  backButtonContainer: {
-    backgroundColor: "#CCCCCC",
-    height: 48,
-    width: 48,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
+  header: {
+    paddingHorizontal: SIZES.padding.xxxlarge,
+    paddingTop: SIZES.padding.xxlarge,
   },
   headerText: {
-    fontSize: 36,
+    fontSize: SIZES.font.xxxlarge,
     fontFamily: "Poppins-Medium",
-    marginTop: 50,
-    color: "#1E1E2D",
+    marginTop: SIZES.padding.xxlarge,
+    color: COLORS.authText,
   },
-  otherMethods: {
-    marginTop: 20,
+  scrollContent: {
+    paddingHorizontal: SIZES.padding.xxxlarge,
+    paddingBottom: SIZES.padding.xxlarge,
+  },
+  socialAuthContainer: {
+    marginTop: SIZES.padding.xxlarge,
+  },
+  socialAuthTitle: {
+    fontSize: SIZES.font.medium,
+    fontFamily: "Poppins-Regular",
+    color: COLORS.authTextSecondary,
+    marginBottom: SIZES.padding.medium,
+    textAlign: "center",
+  },
+  socialAuth: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: SIZES.padding.medium,
   },
-  seperator: {
+  separator: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
+    marginTop: SIZES.padding.xxlarge,
   },
-  seperatorText: {
-    color: "#A2A2A7",
-    fontSize: 16,
+  separatorText: {
+    color: COLORS.authTextSecondary,
+    fontSize: SIZES.font.large,
     fontFamily: "Poppins-Regular",
-    marginHorizontal: 10,
+    marginHorizontal: SIZES.padding.large,
   },
-  horizontalLine: {
-    flex: 1,
-    height: 1.5,
-    backgroundColor: "#cccccc",
+  form: {
+    marginTop: SIZES.padding.xxlarge,
   },
-  inputFieldsContainer: {
-    marginBottom: 10,
+  forgotPassword: {
+    color: COLORS.authTextSecondary,
+    fontSize: SIZES.font.medium,
+    fontFamily: "Poppins-SemiBold",
+    textAlign: "right",
+    marginTop: SIZES.padding.medium,
   },
-  someText:{
-    marginTop: 5,
-    color: "#A2A2A7",
-    fontSize: 14,
+  signUpButton: {
+    marginTop: SIZES.padding.xxlarge,
+  },
+  loginPrompt: {
+    marginTop: SIZES.padding.xxlarge,
+    color: COLORS.authTextSecondary,
+    fontSize: SIZES.font.medium,
     fontFamily: "Poppins-Regular",
     textAlign: "center",
   },
-  forgotPass: {
-    color: "#A2A2A7",
-    fontSize: 14,
+  loginLink: {
+    color: COLORS.primary,
     fontFamily: "Poppins-SemiBold",
-    textAlign: "right",
-    marginTop: 0,
   },
 });
