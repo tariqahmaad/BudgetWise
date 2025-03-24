@@ -6,6 +6,7 @@ import LoginPage from '../Screens/Authenication/LoginPage';
 import SignUpPage from '../Screens/Authenication/SignUpPage';
 import ForgotPage from '../Screens/Authenication/ForgotPage';
 import OnboardingScreen from '../Screens/onboardingScreen';
+import testingScreen from '../Screens/testingSCreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -13,7 +14,8 @@ const index = () => {
   return (
 
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="onboarding">
+      <Stack.Navigator initialRouteName="testing">
+       <Stack.Screen name="testing" component={testingScreen} />
         <Stack.Screen name="onboarding" component={OnboardingScreen} />
         <Stack.Screen name="Login" component={LoginPage} />
         <Stack.Screen name="SignUp" component={SignUpPage} />
