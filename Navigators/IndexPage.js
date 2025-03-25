@@ -3,10 +3,11 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NavigationContainer } from "@react-navigation/native";
 import useFontLoader from "../hooks/useFontLoader";
-import AuthenticationScreen from "../Screens/Authenication/AuthenticationScreen";
 import HomeScreen from "../Screens/Dashboard/HomeScreen";
 import NavigationBar from "../Components/NavBar/NavigationBar";
 import { COLORS, HEADER_STYLE } from "../constants/theme";
+import SignUpPage from "../Screens/Authenication/SignUpPage";
+import LoginPage from "../Screens/Authenication/LoginPage";
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -34,12 +35,13 @@ const AuthStack = () => (
     }}
   >
     <Stack.Screen
-      name="Authentication"
-      component={AuthenticationScreen}
+      name="SignUp"
+      component={SignUpPage}
 
     // name="Home"
     // component={HomeScreen}
     />
+    <Stack.Screen name="SignIn" component={LoginPage} />
   </Stack.Navigator>
 );
 

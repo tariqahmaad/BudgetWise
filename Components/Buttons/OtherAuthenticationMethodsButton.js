@@ -3,10 +3,13 @@ import React from "react";
 import Images from "../../constants/Images";
 
 const OtherAuthenticationMethodsButton = (props) => {
-  const { type = "Google" } = props;
+  const { 
+    onPress,
+    type = "Google" 
+  } = props;
 
   return (
-    <TouchableOpacity style={styles.container}>
+    <TouchableOpacity style={styles.container} onPress={onPress}>
       <Image
         source={type == "Google" ? Images.googleIcon : Images.facebookIcon}
         style={styles.logo}
