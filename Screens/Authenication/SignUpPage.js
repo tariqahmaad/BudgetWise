@@ -47,6 +47,9 @@ const SignUpPage = () => {
     console.log(`Phone: ${formData.phone}`);
     console.log(`Password: ${formData.password}`);
     console.log(`Confirm Password: ${formData.confirmPassword}`);
+
+    
+
   };
 
   const handleSocialAuth = (provider) => {
@@ -148,8 +151,6 @@ const SignUpPage = () => {
                 handleInputChange("confirmPassword", value)
               }
             />
-
-            <Text style={styles.forgotPassword}>Forgot your Password?</Text>
           </View>
 
           <CustomButton
@@ -219,13 +220,6 @@ const styles = StyleSheet.create({
   },
   form: {
     marginTop: SIZES.padding.medium,
-  },
-  forgotPassword: {
-    color: COLORS.authTextSecondary,
-    fontSize: SIZES.font.medium,
-    fontFamily: "Poppins-SemiBold",
-    textAlign: "right",
-    marginBottom: SIZES.padding.xxxlarge,
   },
   signUpButton: {
     marginTop: SIZES.padding.xxlarge,
