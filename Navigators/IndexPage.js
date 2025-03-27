@@ -37,9 +37,6 @@ const AuthStack = () => (
     <Stack.Screen
       name="SignUp"
       component={SignUpPage}
-
-    // name="Home"
-    // component={HomeScreen}
     />
     <Stack.Screen name="SignIn" component={LoginPage} />
   </Stack.Navigator>
@@ -71,8 +68,8 @@ const IndexPage = () => {
     <View style={styles.container} onLayout={onLayoutRootView}>
       <NavigationContainer>
         <Stack.Navigator screenOptions={navigationConfig.defaultScreenOptions}>
-          <Stack.Screen name="Auth" component={AuthStack} />
           <Stack.Screen name="Dashboard" component={DashboardStack} />
+          <Stack.Screen name="Auth" component={AuthStack} />
         </Stack.Navigator>
         {isAuthenticated && <NavigationBar />}
       </NavigationContainer>

@@ -1,16 +1,18 @@
 import { StyleSheet, View, TouchableOpacity } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useNavigationState } from '@react-navigation/native'
 import { COLORS, SIZES, NAV_ITEMS } from '../../constants/theme'
+import DropUpMenu from './DropUpMenu'
 
 const NavigationBar = () => {
     const navigation = useNavigation();
     const currentRoute = useNavigationState(state => state?.routes[state.index]?.name);
+    const [isMenuVisible, setIsMenuVisible] = useState(false);
 
     const handlePress = (routeName) => {
         if (routeName === 'Add') {
-            console.log('Add button pressed');
+            setIsMenuVisible(true);
             return;
         }
 
@@ -20,13 +22,30 @@ const NavigationBar = () => {
         // If we're in the AuthStack, navigate to DashboardStack first
         if (state.routes[0].name === 'Home') {
             navigation.navigate('Dashboard', { screen: routeName });
+
         } else {
             navigation.navigate(routeName);
         }
     };
 
+    const handleMenuOptionPress = (option) => {
+        switch (option) {
+            case 'Add Transactions':
+                navigation.navigate('AddTransaction');
+                setIsMenuVisible(false);
+                break;
+            case 'Debt Tracking':
+                navigation.navigate('DebtTracking');
+                setIsMenuVisible(false);
+                break;
+            default:
+                console.log('Unknown option:', option);
+                setIsMenuVisible(false);
+        }
+    };
+
     const getIconProps = ({ name, icon, isAddButton }) => {
-        const isActive = currentRoute === name;
+        const isActive = currentRoute === name || (currentRoute === 'Home' && name === 'HomeScreen');
         return {
             name: isActive ? icon : `${icon}-outline`,
             color: isAddButton ? COLORS.white : (isActive ? COLORS.active : COLORS.inactive),
@@ -53,11 +72,18 @@ const NavigationBar = () => {
     };
 
     return (
-        <View style={styles.overlay}>
-            <View style={styles.container}>
-                {NAV_ITEMS.map(renderNavItem)}
+        <>
+            <View style={styles.overlay}>
+                <View style={styles.container}>
+                    {NAV_ITEMS.map(renderNavItem)}
+                </View>
             </View>
-        </View>
+            <DropUpMenu
+                visible={isMenuVisible}
+                onClose={() => setIsMenuVisible(false)}
+                onOptionPress={handleMenuOptionPress}
+            />
+        </>
     );
 };
 
