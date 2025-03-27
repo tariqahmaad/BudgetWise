@@ -38,74 +38,65 @@ const MainCard = ({
 };
 
 const styles = StyleSheet.create({
-  // card: {
-  //   width: 370,
-  //   height: 175,
-  //   borderRadius: 15,
-  //   padding: 20,
-  //   elevation: 30,
-  //   marginVertical: 10,
-  //   marginHorizontal: 10,
-  // },
-
   card: {
     width: 370,
     height: 180,
-    borderRadius: 15,
-    padding: 20,
+    borderRadius: 25,
+    padding: 24,
     elevation: 20,
-    marginVertical: 10,
-    marginHorizontal: 10,
+    marginVertical: 15,
+    marginRight: 13,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.44,
+    shadowRadius: 10.32,
+    overflow: 'hidden',
   },
-
   content: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
   title: {
-    fontSize: 14,
-    color: "#EBEBEB",
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
     fontWeight: "500",
-    marginBottom: 10,
-    marginBottom: -5,
+    marginBottom: 8,
+    fontFamily: "Poppins-Medium",
   },
   amount: {
-    fontSize: 25,
+    fontSize: 32,
     fontWeight: "bold",
-    marginBottom: 20,
-    
+    marginBottom: 16,
+    fontFamily: "Poppins-Bold",
   },
   description: {
-    fontSize: 12,
-    color: "white",
-    fontWeight: "bold",
-    marginTop: 5,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "500",
+    marginTop: 8,
+    fontFamily: "Poppins-Medium",
   },
   extraLabel: {
     fontSize: 14,
-    color: "#EBEBEB",
+    color: "rgba(255, 255, 255, 0.7)",
     fontWeight: "500",
-    marginBottom: -5,
+    marginBottom: 4,
+    fontFamily: "Poppins-Medium",
   },
-
   extraValue: {
-    fontSize: 25,
+    fontSize: 28,
     fontWeight: "bold",
-   
+    fontFamily: "Poppins-Bold",
   },
   image: {
-    width: 150,
-    height: 155,
+    width: 180,
+    height: 180,
     position: "absolute",
-    right: 1,
-    top: 4,
+    right: -20,
+    top: -20,
     resizeMode: "contain",
+    opacity: 0.9,
   },
-
 });
 
 export default MainCard;
