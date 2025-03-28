@@ -1,11 +1,22 @@
 import React from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Modal, Animated, Platform } from 'react-native';
+import {
+    StyleSheet,
+    View,
+    TouchableOpacity,
+    Text,
+    Modal,
+    Animated,
+    Platform,
+    TouchableWithoutFeedback // Import TouchableWithoutFeedback
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
 import { COLORS, SIZES } from '../../constants/theme';
 
 const DropUpMenu = ({ visible, onClose, onOptionPress }) => {
     const [animation] = React.useState(new Animated.Value(0));
+    const [fadeAnimation] = React.useState(new Animated.Value(0));
 
     const menuItems = [
         {
@@ -20,28 +31,43 @@ const DropUpMenu = ({ visible, onClose, onOptionPress }) => {
             label: 'Debt Tracking',
             hapticType: 'medium',
         },
+
     ];
 
     React.useEffect(() => {
         if (visible) {
-            Animated.spring(animation, {
-                toValue: 1,
-                useNativeDriver: true,
-                tension: 50,
-                friction: 5,
-            }).start();
+            Animated.parallel([
+                Animated.spring(animation, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    tension: 65,
+                    friction: 8,
+                    velocity: 0.5,
+                }),
+                Animated.timing(fadeAnimation, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                })
+            ]).start();
         } else {
-            Animated.timing(animation, {
-                toValue: 0,
-                duration: 200,
-                useNativeDriver: true,
-            }).start();
+            Animated.parallel([
+                Animated.timing(animation, {
+                    toValue: 0,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(fadeAnimation, {
+                    toValue: 0,
+                    duration: 150,
+                    useNativeDriver: true,
+                })
+            ]).start();
         }
     }, [visible]);
 
     const handlePress = async (item) => {
         try {
-            // Trigger haptic feedback based on platform
             if (Platform.OS === 'ios') {
                 switch (item.hapticType) {
                     case 'light':
@@ -67,67 +93,86 @@ const DropUpMenu = ({ visible, onClose, onOptionPress }) => {
         outputRange: [300, 0],
     });
 
+    const opacity = fadeAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1],
+    });
+
     return (
         <Modal
             visible={visible}
             transparent
             animationType="none"
             onRequestClose={onClose}
+            statusBarTranslucent={true}
         >
-            <TouchableOpacity
-                style={styles.overlay}
-                activeOpacity={1}
-                onPressOut={onClose}
-            >
-                <TouchableOpacity activeOpacity={1} style={styles.innerContainer}>
-                    <Animated.View
-                        style={[
-                            styles.menuContainer,
-                            { transform: [{ translateY }] }
-                        ]}
-                    >
-                        {menuItems.map((item, index) => (
-                            <React.Fragment key={item.key}>
-                                <TouchableOpacity
-                                    style={styles.menuItem}
-                                    onPress={() => handlePress(item)}
-                                    activeOpacity={0.7}
-                                >
-                                    <Ionicons
-                                        name={item.icon}
-                                        size={28}
-                                        color="#fff"
-                                        style={styles.icon}
-                                    />
-                                    <Text style={styles.menuText}>{item.label}</Text>
-                                </TouchableOpacity>
-                                {index < menuItems.length - 1 && <View style={styles.divider} />}
-                            </React.Fragment>
-                        ))}
-                    </Animated.View>
+            <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
+                <BlurView
+                    tint="systemChromeMaterialDark"
+                    style={StyleSheet.absoluteFill}
+                    experimentalBlurMethod="dimezisBlurView"
+                    blurReductionFactor={15}
+                />
+                <TouchableOpacity
+                    style={styles.touchableOverlay}
+                    activeOpacity={1}
+                    onPress={onClose}
+                >
+                    <TouchableWithoutFeedback>
+                        <View style={styles.contentContainer}>
+                            <Animated.View
+                                style={[
+                                    styles.menuContainer,
+                                    {
+                                        transform: [{ translateY }],
+                                        opacity: fadeAnimation
+                                    }
+                                ]}
+                            >
+                                {menuItems.map((item, index) => (
+                                    <React.Fragment key={item.key}>
+                                        <TouchableOpacity
+                                            style={styles.menuItem}
+                                            onPress={() => handlePress(item)}
+                                            activeOpacity={0.7}
+                                        >
+                                            <Ionicons
+                                                name={item.icon}
+                                                size={28}
+                                                color="#fff"
+                                                style={styles.icon}
+                                            />
+                                            <Text style={styles.menuText}>{item.label}</Text>
+                                        </TouchableOpacity>
+                                        {index < menuItems.length - 1 && <View style={styles.divider} />}
+                                    </React.Fragment>
+                                ))}
+                            </Animated.View>
 
-                    <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={onClose}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.cancelButtonText}>Cancel</Text>
-                    </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={onClose}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.cancelButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableWithoutFeedback>
                 </TouchableOpacity>
-            </TouchableOpacity>
+            </Animated.View>
         </Modal>
     );
 };
 
+// --- Keep styles exactly the same as the previous correct version ---
 const styles = StyleSheet.create({
-    overlay: {
+    touchableOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.4)',
         justifyContent: 'flex-end',
     },
-    innerContainer: {
+    contentContainer: {
         paddingHorizontal: 15,
-        paddingBottom: 75,
+        paddingBottom: Platform.OS === 'ios' ? 40 : 70,
     },
     menuContainer: {
         backgroundColor: '#1C1C1E',
@@ -169,8 +214,6 @@ const styles = StyleSheet.create({
     cancelButton: {
         backgroundColor: '#F2F2F7',
         borderRadius: 12,
-        borderWidth: 3,
-        borderColor: 'rgba(113, 113, 113, 0.92)',
         minHeight: 50,
         alignItems: 'center',
         justifyContent: 'center',
@@ -187,9 +230,10 @@ const styles = StyleSheet.create({
         }),
     },
     cancelButtonText: {
+        color: '#000',
         fontWeight: 'bold',
         fontSize: 20,
     },
 });
 
-export default DropUpMenu; 
+export default DropUpMenu;
