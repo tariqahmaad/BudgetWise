@@ -16,9 +16,10 @@ const MainCard = ({
   backgroundColor,
   Frame,
   extraField = [],
+  isLast = false,
 }) => {
   return (
-    <View style={[styles.card, { backgroundColor }]}>
+    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 1 : 13 }]}>
       <View style={styles.content}>
         {Frame && (
           <Image
@@ -49,7 +50,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     padding: width * 0.06, // 6% of screen width
     marginVertical: height * 0.02, // 2% of screen height
-    marginRight: width * 0.03, // 3% of screen width
     ...Platform.select({
       ios: {
         shadowColor: "#000",

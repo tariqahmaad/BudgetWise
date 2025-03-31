@@ -10,9 +10,9 @@ const cardHeight = height * 0.18; // 18% of screen height
 const iconSize = cardWidth * 0.22; // 22% of card width
 const backgroundIconSize = cardWidth * 0.32; // 32% of card width
 
-const SubCard = ({ Category, amount, description, backgroundColor, iconName, rotation = '0deg' }) => {
+const SubCard = ({ Category, amount, description, backgroundColor, iconName, rotation = '0deg', isLast = false }) => {
   return (
-    <View style={[styles.card, { backgroundColor }]}>
+    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 1 : 15 }]}>
       <View style={styles.overlay} />
       <Ionicons
         name={iconName}
@@ -41,7 +41,6 @@ const styles = StyleSheet.create({
     padding: width * 0.05, // 5% of screen width
     alignItems: "flex-start",
     justifyContent: "center",
-    marginRight: width * 0.04, // 4% of screen width
     ...Platform.select({
       ios: {
         shadowColor: "#000",

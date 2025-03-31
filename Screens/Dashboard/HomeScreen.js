@@ -175,7 +175,7 @@ const HomeScreen = () => {
     };
 
     // Render Main Cards using FlatList
-    const renderMainCardItem = ({ item }) => (
+    const renderMainCardItem = ({ item, index }) => (
         <MainCard
             title={item.title}
             amount={item.amount}
@@ -184,6 +184,7 @@ const HomeScreen = () => {
             backgroundColor={item.backgroundColor}
             Frame={item.Frame}
             extraField={item.extraField}
+            isLast={index === mainCardsData.length - 1}
         />
     );
 
@@ -260,7 +261,7 @@ const HomeScreen = () => {
     );
 
     // Render Sub Cards (Spending Categories) using FlatList
-    const renderSubCardItem = ({ item }) => (
+    const renderSubCardItem = ({ item, index }) => (
         <SubCard
             Category={item.Category}
             amount={item.amount}
@@ -268,6 +269,7 @@ const HomeScreen = () => {
             backgroundColor={item.backgroundColor}
             iconName={item.iconName}
             rotation={item.rotation}
+            isLast={index === subCardsData.length - 1}
         />
     );
 
@@ -310,7 +312,7 @@ const HomeScreen = () => {
                     <Text style={styles.transactionCategory}>{item.category}</Text>
                 </View>
             </View>
-            <Text style={[styles.transactionAmount, { color: item.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{item.amount}</Text> {/* Dynamic color based on +/- */}
+            <Text style={[styles.transactionAmount, { color: item.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{item.amount}</Text>
         </View>
     );
 
@@ -436,7 +438,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     flatListContentContainer: {
-        paddingHorizontal: 10,
+        paddingHorizontal: 20,
     },
     sectionContainer: {
         flexDirection: 'row',

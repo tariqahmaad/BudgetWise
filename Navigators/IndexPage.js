@@ -4,6 +4,9 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { NavigationContainer } from "@react-navigation/native";
 import useFontLoader from "../hooks/useFontLoader";
 import HomeScreen from "../Screens/Dashboard/HomeScreen";
+import SummaryScreen from "../Screens/Dashboard/SummaryScreen";
+import AIScreen from "../Screens/Dashboard/AIScreen";
+import SettingsScreen from "../Screens/Dashboard/SettingsScreen";
 import NavigationBar from "../Components/NavBar/NavigationBar";
 import { COLORS, HEADER_STYLE } from "../constants/theme";
 import SignUpPage from "../Screens/Authenication/SignUpPage";
@@ -47,9 +50,9 @@ const DashboardStack = () => (
     screenOptions={navigationConfig.defaultScreenOptions}
   >
     <Stack.Screen name="HomeScreen" component={HomeScreen} />
-    <Stack.Screen name="Summary" component={HomeScreen} />
-    <Stack.Screen name="AI" component={HomeScreen} />
-    <Stack.Screen name="Settings" component={HomeScreen} />
+    <Stack.Screen name="Summary" component={SummaryScreen} />
+    <Stack.Screen name="AI" component={AIScreen} />
+    <Stack.Screen name="Settings" component={SettingsScreen} />
   </Stack.Navigator>
 );
 
@@ -71,7 +74,6 @@ const IndexPage = () => {
           <Stack.Screen name="Dashboard" component={DashboardStack} />
           <Stack.Screen name="Auth" component={AuthStack} />
         </Stack.Navigator>
-        {isAuthenticated && <NavigationBar />}
       </NavigationContainer>
     </View>
   );
