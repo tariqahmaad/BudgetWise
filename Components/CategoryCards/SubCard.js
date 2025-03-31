@@ -1,6 +1,14 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Dimensions, Platform } from "react-native";
 import Ionicons from "react-native-vector-icons/Ionicons";
+
+const { width, height } = Dimensions.get("window");
+
+// Calculate responsive dimensions
+const cardWidth = width * 0.75; // 75% of screen width
+const cardHeight = height * 0.18; // 18% of screen height
+const iconSize = cardWidth * 0.22; // 22% of card width
+const backgroundIconSize = cardWidth * 0.32; // 32% of card width
 
 const SubCard = ({ Category, amount, description, backgroundColor, iconName, rotation = '0deg' }) => {
   return (
@@ -8,13 +16,13 @@ const SubCard = ({ Category, amount, description, backgroundColor, iconName, rot
       <View style={styles.overlay} />
       <Ionicons
         name={iconName}
-        size={95}
+        size={backgroundIconSize}
         color="rgba(255, 255, 255, 0.15)"
         style={[styles.backgroundIcon, { transform: [{ rotate: rotation }] }]}
       />
       <Ionicons
         name={iconName}
-        size={65}
+        size={iconSize}
         color="white"
         style={[styles.icon, { transform: [{ rotate: rotation }] }]}
       />
@@ -27,18 +35,23 @@ const SubCard = ({ Category, amount, description, backgroundColor, iconName, rot
 
 const styles = StyleSheet.create({
   card: {
-    width: 295,
-    height: 151,
+    width: cardWidth,
+    height: cardHeight,
     borderRadius: 20,
-    padding: 20,
+    padding: width * 0.05, // 5% of screen width
     alignItems: "flex-start",
     justifyContent: "center",
-    marginRight: 15,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginRight: width * 0.04, // 4% of screen width
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
     overflow: 'hidden',
     position: 'relative',
   },
@@ -52,32 +65,29 @@ const styles = StyleSheet.create({
   },
   backgroundIcon: {
     position: 'absolute',
-    bottom: -10,
-    right: 180,
-    // left: -20,
+    bottom: -backgroundIconSize * 0.1,
+    right: cardWidth * 0.6,
     opacity: 0.6,
   },
   icon: {
     position: 'absolute',
-    top: 30,
-    right: 30,
+    top: cardHeight * 0.2,
+    right: cardWidth * 0.1,
   },
   Category: {
-    fontSize: 20,
-    fontWeight: "600",
+    fontSize: width * 0.05, // 5% of screen width
     color: "#fff",
-    marginBottom: 8,
+    marginBottom: height * 0.01, // 1% of screen height
     fontFamily: "Poppins-SemiBold",
   },
   amount: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: width * 0.06, // 6% of screen width
     color: "#fff",
-    marginBottom: 8,
+    marginBottom: height * 0.01, // 1% of screen height
     fontFamily: "Poppins-Bold",
   },
   description: {
-    fontSize: 14,
+    fontSize: width * 0.035, // 3.5% of screen width
     color: "rgba(255, 255, 255, 0.7)",
     fontFamily: "Poppins-Medium",
   },
