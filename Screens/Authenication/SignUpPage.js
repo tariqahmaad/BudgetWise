@@ -15,6 +15,9 @@ import HorizontalLine from "../../Components/HorizontalLine";
 import CustomButton from "../../Components/Buttons/CustomButton";
 import { COLORS, SIZES } from "../../constants/theme";
 import { useNavigation } from "@react-navigation/native";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth, firestore } from "../../firebase/firebaseConfig"; // Adjust the import based on your project structure
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const SignUpPage = () => {
   const [showPasswords, setShowPasswords] = useState(false);
@@ -38,7 +41,7 @@ const SignUpPage = () => {
     console.log("Back Button Pressed");
   };
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // TODO: Implement sign up logic
     console.log("Sign Up Button Pressed");
     console.log(`Name: ${formData.name}`);
@@ -48,8 +51,37 @@ const SignUpPage = () => {
     console.log(`Password: ${formData.password}`);
     console.log(`Confirm Password: ${formData.confirmPassword}`);
 
-    
+    // Check if passwords match
+    if (formData.password !== formData.confirmPassword) {
+      console.error("Passwords do not match!");
+      return;
+    }
 
+    try {
+      // Create user with email and password
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+      const user = userCredential.user;
+      console.log("User signed up:", user.uid);
+
+      // Save additional user details to Firestore
+      await setDoc(doc(firestore, "users", user.uid), {
+        name: formData.name,
+        surname: formData.surname,
+        email: formData.email,
+        phone: formData.phone,
+        createdAt: serverTimestamp(), // Records the sign-up time
+      });
+
+      console.log("Additional user data saved successfully.");
+      // Optionally navigate the user to the next screen after successful sign up
+      navigation.navigate("Home");
+    } catch (error) {
+      console.error("Error signing up:", error.message);
+    }
   };
 
   const handleSocialAuth = (provider) => {

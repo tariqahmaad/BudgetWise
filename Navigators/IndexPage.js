@@ -15,8 +15,8 @@ const Stack = createNativeStackNavigator();
 const navigationConfig = {
   defaultScreenOptions: {
     headerShown: false,
-    animation: 'fade',
-    presentation: 'transparentModal',
+    animation: "fade",
+    presentation: "transparentModal",
     contentStyle: {
       backgroundColor: COLORS.appBackground,
     },
@@ -34,18 +34,13 @@ const AuthStack = () => (
       ...navigationConfig.authStackOptions,
     }}
   >
-    <Stack.Screen
-      name="SignUp"
-      component={SignUpPage}
-    />
+    <Stack.Screen name="SignUp" component={SignUpPage} />
     <Stack.Screen name="SignIn" component={LoginPage} />
   </Stack.Navigator>
 );
 
 const DashboardStack = () => (
-  <Stack.Navigator
-    screenOptions={navigationConfig.defaultScreenOptions}
-  >
+  <Stack.Navigator screenOptions={navigationConfig.defaultScreenOptions}>
     <Stack.Screen name="HomeScreen" component={HomeScreen} />
     <Stack.Screen name="Summary" component={HomeScreen} />
     <Stack.Screen name="AI" component={HomeScreen} />
@@ -67,7 +62,10 @@ const IndexPage = () => {
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
       <NavigationContainer>
-        <Stack.Navigator screenOptions={navigationConfig.defaultScreenOptions}>
+        <Stack.Navigator
+          screenOptions={navigationConfig.defaultScreenOptions}
+          initialRouteName="Auth"
+        >
           <Stack.Screen name="Dashboard" component={DashboardStack} />
           <Stack.Screen name="Auth" component={AuthStack} />
         </Stack.Navigator>
