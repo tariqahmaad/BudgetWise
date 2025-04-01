@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Image, Dimensions } from "react-native";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Image, Dimensions, FlatList } from "react-native";
 import React, { useState } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
@@ -20,6 +20,110 @@ const CARD_DIMENSIONS = {
     }
 };
 
+// Define data arrays for FlatLists
+const mainCardsData = [
+    {
+        id: 'balance',
+        title: "Available Balance",
+        amount: "$3,578",
+        amountColor: "white",
+        description: "See details",
+        backgroundColor: "#012249",
+        Frame: require("../../assets/card-animation1.png"),
+    },
+    {
+        id: 'income',
+        title: "Total Income",
+        amount: "$3,578.00",
+        amountColor: "lightgreen",
+        backgroundColor: "#2F2F42",
+        Frame: require("../../assets/guy-animation.png"),
+        extraField: [
+            { label: "Total Expenses", value: "$3,578.00", color: "#FF7C7C" },
+        ],
+    },
+    {
+        id: 'saving',
+        title: "Total Saving",
+        amount: "$0.00",
+        amountColor: "white",
+        description: "See details",
+        backgroundColor: "#AF7700",
+        Frame: require("../../assets/money-animation.png"),
+    }
+];
+
+const subCardsData = [
+    {
+        id: 'food',
+        Category: "Food",
+        amount: "$3,578.28",
+        description: "Available balance $750.20",
+        backgroundColor: "#2D8F78",
+        iconName: "pizza-outline",
+        rotation: "40deg"
+    },
+    {
+        id: 'groceries',
+        Category: "Groceries",
+        amount: "$3,578.28",
+        description: "Available balance $750.20",
+        backgroundColor: "#E1B345",
+        iconName: "basket-outline"
+    },
+    {
+        id: 'shopping',
+        Category: "Shopping",
+        amount: "$3,578.28",
+        description: "Available balance $750.20",
+        backgroundColor: "#0D60C4",
+        iconName: "bag-outline"
+    },
+    {
+        id: 'travel',
+        Category: "Travel and vacation",
+        amount: "$3,578.28",
+        description: "Available balance $750.20",
+        backgroundColor: "#0B2749",
+        iconName: "airplane-outline",
+        rotation: "-40deg"
+    },
+    {
+        id: 'fees',
+        Category: "Bank Fees",
+        amount: "$3,578.28",
+        description: "Available balance $750.20",
+        backgroundColor: "#1C4A3E",
+        iconName: "business-outline"
+    }
+];
+
+// Define sample transaction data
+const transactionData = [
+    {
+        title: "Today",
+        data: [
+            { id: 't1', name: 'Apple Store', category: 'Entertainment', amount: '- $5.99', icon: 'logo-apple', iconBg: '#F2F2F7', iconColor: 'black' },
+            { id: 't2', name: 'Walmart', category: 'Groceries', amount: '- $45.32', icon: 'basket-outline', iconBg: '#E1B345', iconColor: 'white' },
+            { id: 't3', name: 'Pizza Hut', category: 'Food', amount: '- $28.50', icon: 'pizza-outline', iconBg: '#2D8F78', iconColor: 'white' },
+        ]
+    },
+    {
+        title: "Yesterday",
+        data: [
+            { id: 't4', name: 'Spotify', category: 'Entertainment', amount: '- $9.99', icon: 'musical-notes-outline', iconBg: '#007AFF', iconColor: 'white' },
+            { id: 't5', name: 'Amazon', category: 'Shopping', amount: '- $89.99', icon: 'cart-outline', iconBg: '#FF3B30', iconColor: 'white' },
+        ]
+    },
+    {
+        title: "Last 7 Days",
+        data: [
+            { id: 't6', name: 'United Airlines', category: 'Travel', amount: '- $299.00', icon: 'airplane-outline', iconBg: '#0B2749', iconColor: 'white' },
+            { id: 't7', name: 'Bank Fee', category: 'Fees', amount: '- $35.00', icon: 'business-outline', iconBg: '#1C4A3E', iconColor: 'white' },
+        ]
+    },
+];
+
 const HomeScreen = () => {
     // State management for card pagination
     const [mainCardIndex, setMainCardIndex] = useState(0);
@@ -33,41 +137,6 @@ const HomeScreen = () => {
         { id: 3, name: 'Name' },
         { id: 4, name: 'Name' },
         { id: 5, name: 'Name' },
-    ];
-
-    const spendingCategories = [
-        {
-            id: 1,
-            category: 'Food',
-            amount: '$3,578.28',
-            balance: '$750.20',
-            icon: 'pizza-outline',
-            backgroundColor: '#2D8F78'
-        },
-        {
-            id: 2,
-            category: 'Groceries',
-            amount: '$3,578.28',
-            balance: '$750.20',
-            icon: 'basket-outline',
-            backgroundColor: '#E1B345'
-        },
-        {
-            id: 3,
-            category: 'Entertainment',
-            amount: '$3,578.28',
-            balance: '$750.20',
-            icon: 'musical-notes-outline',
-            backgroundColor: '#007AFF'
-        },
-        {
-            id: 4,
-            category: 'Shopping',
-            amount: '$3,578.28',
-            balance: '$750.20',
-            icon: 'cart-outline',
-            backgroundColor: '#FF3B30'
-        }
     ];
 
     // Event handlers
@@ -105,49 +174,69 @@ const HomeScreen = () => {
         );
     };
 
+    // Render Main Cards using FlatList
+    const renderMainCardItem = ({ item, index }) => (
+        <MainCard
+            title={item.title}
+            amount={item.amount}
+            amountColor={item.amountColor}
+            description={item.description}
+            backgroundColor={item.backgroundColor}
+            Frame={item.Frame}
+            extraField={item.extraField}
+            isLast={index === mainCardsData.length - 1}
+        />
+    );
+
     const renderMainCards = () => (
         <View>
-            <ScrollView
+            <FlatList
+                data={mainCardsData}
+                renderItem={renderMainCardItem}
+                keyExtractor={item => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.horizontalScrollView}
-                contentContainerStyle={styles.horizontalScrollContent}
+                contentContainerStyle={styles.flatListContentContainer}
                 onScroll={handleMainScroll}
                 scrollEventThrottle={16}
                 snapToInterval={CARD_DIMENSIONS.mainCard.totalWidth}
                 decelerationRate="fast"
                 snapToAlignment="start"
-                pagingEnabled={true}
-            >
-                <MainCard
-                    title="Available Balance"
-                    amount="$3,578"
-                    amountColor="white"
-                    description="See details"
-                    backgroundColor="#012249"
-                    Frame={require("../../assets/card-animation1.png")}
-                />
-                <MainCard
-                    title="Total Income"
-                    amount="$3,578.00"
-                    amountColor="lightgreen"
-                    backgroundColor="#2F2F42"
-                    Frame={require("../../assets/guy-animation.png")}
-                    extraField={[
-                        { label: "Total Expenses", value: "$3,578.00", color: "#FF7C7C" },
-                    ]}
-                />
-                <MainCard
-                    title="Total Saving"
-                    amount="$0.00"
-                    amountColor="white"
-                    description="See details"
-                    backgroundColor="#AF7700"
-                    Frame={require("../../assets/money-animation.png")}
-                />
-            </ScrollView>
-            {renderPaginationDots(mainCardIndex, 3, { marginTop: 10 })}
+                pagingEnabled
+            />
+            {renderPaginationDots(mainCardIndex, mainCardsData.length, { marginTop: 10 })}
         </View>
+    );
+
+    // Render Friends using FlatList
+    const renderFriendItem = ({ item }) => (
+        <TouchableOpacity
+            key={item.id}
+            style={styles.friendCircle}
+            onPress={() => handleFriendPress(item)}
+        >
+            <View style={styles.friendAvatarContainer}>
+                <Ionicons
+                    name="person-circle-outline"
+                    size={50}
+                    color={COLORS.text}
+                />
+            </View>
+            <Text style={styles.friendName}>{item.name}</Text>
+        </TouchableOpacity>
+    );
+
+    const renderAddFriendButton = () => (
+        <TouchableOpacity style={styles.addFriendButton}>
+            <View style={styles.addFriendCircle}>
+                <Ionicons
+                    name="add"
+                    size={32}
+                    color={COLORS.text}
+                />
+            </View>
+            <Text style={styles.friendName}>Add new</Text>
+        </TouchableOpacity>
     );
 
     const renderFriendsSection = () => (
@@ -159,40 +248,29 @@ const HomeScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
+            <FlatList
+                data={friends}
+                renderItem={renderFriendItem}
+                keyExtractor={item => item.id.toString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.friendsScrollView}
-                contentContainerStyle={styles.friendsContainer}
-            >
-                {friends.map((friend) => (
-                    <TouchableOpacity
-                        key={friend.id}
-                        style={styles.friendCircle}
-                        onPress={() => handleFriendPress(friend)}
-                    >
-                        <View style={styles.friendAvatarContainer}>
-                            <Ionicons
-                                name="person-circle-outline"
-                                size={50}
-                                color={COLORS.text}
-                            />
-                        </View>
-                        <Text style={styles.friendName}>{friend.name}</Text>
-                    </TouchableOpacity>
-                ))}
-                <TouchableOpacity style={styles.addFriendButton}>
-                    <View style={styles.addFriendCircle}>
-                        <Ionicons
-                            name="add"
-                            size={32}
-                            color={COLORS.text}
-                        />
-                    </View>
-                    <Text style={styles.friendName}>Add new</Text>
-                </TouchableOpacity>
-            </ScrollView>
+                contentContainerStyle={styles.friendsFlatListContainer}
+                ListFooterComponent={renderAddFriendButton}
+            />
         </>
+    );
+
+    // Render Sub Cards (Spending Categories) using FlatList
+    const renderSubCardItem = ({ item, index }) => (
+        <SubCard
+            Category={item.Category}
+            amount={item.amount}
+            description={item.description}
+            backgroundColor={item.backgroundColor}
+            iconName={item.iconName}
+            rotation={item.rotation}
+            isLast={index === subCardsData.length - 1}
+        />
     );
 
     const renderSubCards = () => (
@@ -204,57 +282,51 @@ const HomeScreen = () => {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView
+            <FlatList
+                data={subCardsData}
+                renderItem={renderSubCardItem}
+                keyExtractor={item => item.id}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                style={styles.horizontalScrollView}
-                contentContainerStyle={styles.horizontalScrollContent}
+                contentContainerStyle={styles.flatListContentContainer}
                 onScroll={handleSubScroll}
                 scrollEventThrottle={16}
                 snapToInterval={CARD_DIMENSIONS.subCard.totalWidth}
                 decelerationRate="fast"
                 snapToAlignment="start"
-                pagingEnabled={true}
-            >
-                <SubCard
-                    Category="Food"
-                    amount="$3,578.28"
-                    description="Available balance $750.20"
-                    backgroundColor="#2D8F78"
-                    iconName="pizza-outline"
-                    rotation="40deg"
-                />
-                <SubCard
-                    Category="Groceries"
-                    amount="$3,578.28"
-                    description="Available balance $750.20"
-                    backgroundColor="#E1B345"
-                    iconName="basket-outline"
-                />
-                <SubCard
-                    Category="Shopping"
-                    amount="$3,578.28"
-                    description="Available balance $750.20"
-                    backgroundColor="#0D60C4"
-                    iconName="bag-outline"
-                />
-                <SubCard
-                    Category="Travel and vacation"
-                    amount="$3,578.28"
-                    description="Available balance $750.20"
-                    backgroundColor="#0B2749"
-                    iconName="airplane-outline"
-                    rotation="-40deg"
-                />
-                <SubCard
-                    Category="Bank Fees"
-                    amount="$3,578.28"
-                    description="Available balance $750.20"
-                    backgroundColor="#1C4A3E"
-                    iconName="business-outline"
-                />
-            </ScrollView>
-            {renderPaginationDots(subCardIndex, 5, { marginTop: 10 })}
+                pagingEnabled
+            />
+            {renderPaginationDots(subCardIndex, subCardsData.length, { marginTop: 10 })}
+        </View>
+    );
+
+    // Render a single transaction item
+    const renderTransactionItem = ({ item }) => (
+        <View style={styles.transaction}>
+            <View style={styles.transactionLeft}>
+                <View style={[styles.transactionIcon, { backgroundColor: item.iconBg }]}>
+                    <Ionicons name={item.icon} size={24} color={item.iconColor || 'white'} />
+                </View>
+                <View>
+                    <Text style={styles.transactionName}>{item.name}</Text>
+                    <Text style={styles.transactionCategory}>{item.category}</Text>
+                </View>
+            </View>
+            <Text style={[styles.transactionAmount, { color: item.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{item.amount}</Text>
+        </View>
+    );
+
+    // Render a group of transactions (e.g., "Today", "Yesterday")
+    const renderTransactionGroup = ({ item }) => (
+        <View style={styles.transactionGroup}>
+            <Text style={styles.transactionDate}>{item.title}</Text>
+            <FlatList
+                data={item.data}
+                renderItem={renderTransactionItem}
+                keyExtractor={transaction => transaction.id}
+                scrollEnabled={false} // Disable scrolling for inner list
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />} // Add space between items
+            />
         </View>
     );
 
@@ -266,99 +338,13 @@ const HomeScreen = () => {
                     <Text style={styles.seeAllButton}>See All</Text>
                 </TouchableOpacity>
             </View>
-            <View style={styles.transactionGroup}>
-                <Text style={styles.transactionDate}>Today</Text>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={styles.transactionIcon}>
-                            <Ionicons name="logo-apple" size={24} color="black" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Apple Store</Text>
-                            <Text style={styles.transactionCategory}>Entertainment</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $5.99</Text>
-                </View>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#E1B345' }]}>
-                            <Ionicons name="basket-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Walmart</Text>
-                            <Text style={styles.transactionCategory}>Groceries</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $45.32</Text>
-                </View>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#2D8F78' }]}>
-                            <Ionicons name="pizza-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Pizza Hut</Text>
-                            <Text style={styles.transactionCategory}>Food</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $28.50</Text>
-                </View>
-            </View>
-            <View style={styles.transactionGroup}>
-                <Text style={styles.transactionDate}>Yesterday</Text>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#007AFF' }]}>
-                            <Ionicons name="musical-notes-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Spotify</Text>
-                            <Text style={styles.transactionCategory}>Entertainment</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $9.99</Text>
-                </View>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#FF3B30' }]}>
-                            <Ionicons name="cart-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Amazon</Text>
-                            <Text style={styles.transactionCategory}>Shopping</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $89.99</Text>
-                </View>
-            </View>
-            <View style={styles.transactionGroup}>
-                <Text style={styles.transactionDate}>Last 7 Days</Text>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#0B2749' }]}>
-                            <Ionicons name="airplane-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>United Airlines</Text>
-                            <Text style={styles.transactionCategory}>Travel</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $299.00</Text>
-                </View>
-                <View style={styles.transaction}>
-                    <View style={styles.transactionLeft}>
-                        <View style={[styles.transactionIcon, { backgroundColor: '#1C4A3E' }]}>
-                            <Ionicons name="business-outline" size={24} color="white" />
-                        </View>
-                        <View>
-                            <Text style={styles.transactionName}>Bank Fee</Text>
-                            <Text style={styles.transactionCategory}>Fees</Text>
-                        </View>
-                    </View>
-                    <Text style={styles.transactionAmount}>- $35.00</Text>
-                </View>
-            </View>
+            {/* Use FlatList to render transaction groups */}
+            <FlatList
+                data={transactionData}
+                renderItem={renderTransactionGroup}
+                keyExtractor={group => group.title}
+                scrollEnabled={false} // Disable scrolling for outer list if main ScrollView handles it
+            />
         </View>
     );
 
@@ -451,12 +437,8 @@ const styles = StyleSheet.create({
     scrollContainer: {
         flex: 1,
     },
-    horizontalScrollView: {
-        flexDirection: "row",
-    },
-    horizontalScrollContent: {
+    flatListContentContainer: {
         paddingHorizontal: 20,
-        paddingRight: 10, // Ensure consistent padding on both sides
     },
     sectionContainer: {
         flexDirection: 'row',
@@ -475,12 +457,9 @@ const styles = StyleSheet.create({
         color: COLORS.active,
         fontFamily: "Poppins-Medium",
     },
-    friendsScrollView: {
-        flexDirection: 'row',
-        marginBottom: 5,
-    },
-    friendsContainer: {
+    friendsFlatListContainer: {
         paddingHorizontal: 20,
+        alignItems: 'flex-start',
     },
     friendCircle: {
         alignItems: 'center',
@@ -535,8 +514,9 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     seeAllButton: {
-        color: '#007AFF',
+        color: COLORS.active,
         fontSize: 14,
+        fontFamily: "Poppins-Medium",
     },
     transactionGroup: {
         marginBottom: 16,
@@ -545,6 +525,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         marginBottom: 12,
+        fontFamily: "Poppins-Medium",
     },
     transaction: {
         flexDirection: 'row',
@@ -562,24 +543,23 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: '#F2F2F7',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
     },
     transactionName: {
         fontSize: 16,
-        fontWeight: '500',
         color: '#000',
+        fontFamily: "Poppins-Medium",
     },
     transactionCategory: {
         fontSize: 12,
         color: '#666',
+        fontFamily: "Poppins-Regular",
     },
     transactionAmount: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#FF3B30',
+        fontFamily: "Poppins-SemiBold",
     },
     bottomPadding: {
         height: 80,

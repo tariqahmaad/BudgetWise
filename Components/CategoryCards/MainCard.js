@@ -1,7 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet, Image, Dimensions } from "react-native";
+import { View, Text, StyleSheet, Image, Dimensions, Platform } from "react-native";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// Calculate responsive dimensions
+const cardWidth = width * 0.9; // 90% of screen width
+const cardHeight = height * 0.22; // 22% of screen height
+const imageSize = cardWidth * 0.5; // 50% of card width
 
 const MainCard = ({
   title,
@@ -11,9 +16,10 @@ const MainCard = ({
   backgroundColor,
   Frame,
   extraField = [],
+  isLast = false,
 }) => {
   return (
-    <View style={[styles.card, { backgroundColor }]}>
+    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 1 : 13 }]}>
       <View style={styles.content}>
         {Frame && (
           <Image
@@ -39,17 +45,21 @@ const MainCard = ({
 
 const styles = StyleSheet.create({
   card: {
-    width: 370,
-    height: 180,
+    width: cardWidth,
+    height: cardHeight,
     borderRadius: 25,
-    padding: 24,
-    elevation: 20,
-    marginVertical: 15,
-    marginRight: 13,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.44,
-    shadowRadius: 10.32,
+    padding: width * 0.06, // 6% of screen width
+    marginVertical: height * 0.02, // 2% of screen height
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOpacity: 0.44,
+        shadowRadius: 10.32,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
     overflow: 'hidden',
   },
   content: {
@@ -57,43 +67,37 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   title: {
-    fontSize: 16,
+    fontSize: width * 0.04, // 4% of screen width
     color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-    marginBottom: 8,
-    fontFamily: "Poppins-Medium",
+    marginBottom: height * 0.01, // 1% of screen height
+    fontFamily: "Poppins-SemiBold",
   },
   amount: {
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 16,
+    fontSize: width * 0.08, // 8% of screen width
+    marginBottom: height * 0.01, // 1% of screen height
     fontFamily: "Poppins-Bold",
   },
   description: {
-    fontSize: 14,
+    fontSize: width * 0.035, // 3.5% of screen width
     color: "rgba(255, 255, 255, 0.7)",
-    fontWeight: "500",
-    marginTop: 8,
+    marginTop: height * 0.01, // 1% of screen height
     fontFamily: "Poppins-Medium",
   },
   extraLabel: {
-    fontSize: 14,
+    fontSize: width * 0.035, // 3.5% of screen width
     color: "rgba(255, 255, 255, 0.7)",
-    fontWeight: "500",
-    marginBottom: 4,
-    fontFamily: "Poppins-Medium",
+    fontFamily: "Poppins-SemiBold",
   },
   extraValue: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: width * 0.07, // 7% of screen width
     fontFamily: "Poppins-Bold",
   },
   image: {
-    width: 180,
-    height: 180,
+    width: imageSize,
+    height: imageSize,
     position: "absolute",
-    right: -20,
-    top: -20,
+    right: -imageSize * 0.1,
+    top: -imageSize * 0.1,
     resizeMode: "contain",
     opacity: 0.9,
   },
