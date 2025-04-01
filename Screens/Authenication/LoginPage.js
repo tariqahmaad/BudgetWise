@@ -15,6 +15,9 @@ import HorizontalLine from "../../Components/HorizontalLine";
 import CustomButton from "../../Components/Buttons/CustomButton";
 import { COLORS, SIZES } from "../../constants/theme";
 import { useNavigation } from "@react-navigation/native";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../firebase/firebaseConfig";
+
 
 const LoginPage = () => {
   const [showPasswords, setShowPasswords] = useState(false);
@@ -34,11 +37,25 @@ const LoginPage = () => {
     console.log("Back Button Pressed");
   };
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
     // TODO: Implement sign up logic
     console.log("Sign In Button Pressed");
     console.log(`Email: ${formData.email}`);
     console.log(`Password: ${formData.password}`);
+
+    try{
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      const user = userCredential.user;
+      console.log("User signed in:", user.uid);
+      
+    }catch(error){
+      console.error("Error signing in:", error.message);
+    }
   };
 
   const handleSocialAuth = (provider) => {

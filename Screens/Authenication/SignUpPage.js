@@ -5,6 +5,7 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import React, { useState } from "react";
 import ScreenWrapper from "../../Components/ScreenWrapper";
@@ -18,6 +19,7 @@ import { useNavigation } from "@react-navigation/native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, firestore } from "../../firebase/firebaseConfig"; // Adjust the import based on your project structure
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "../../context/AuthProvider"; // Add this import
 
 const SignUpPage = () => {
   const [showPasswords, setShowPasswords] = useState(false);
@@ -29,6 +31,8 @@ const SignUpPage = () => {
     password: "",
     confirmPassword: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth(); // Add this
 
   const navigation = useNavigation();
 
@@ -42,22 +46,27 @@ const SignUpPage = () => {
   };
 
   const handleSignUp = async () => {
-    // TODO: Implement sign up logic
-    console.log("Sign Up Button Pressed");
-    console.log(`Name: ${formData.name}`);
-    console.log(`Surname: ${formData.surname}`);
-    console.log(`Email: ${formData.email}`);
-    console.log(`Phone: ${formData.phone}`);
-    console.log(`Password: ${formData.password}`);
-    console.log(`Confirm Password: ${formData.confirmPassword}`);
-
-    // Check if passwords match
-    if (formData.password !== formData.confirmPassword) {
-      console.error("Passwords do not match!");
-      return;
-    }
-
     try {
+      setIsLoading(true);
+      console.log("Sign Up Button Pressed");
+      console.log(`Name: ${formData.name}`);
+      console.log(`Surname: ${formData.surname}`);
+      console.log(`Email: ${formData.email}`);
+      console.log(`Phone: ${formData.phone}`);
+      console.log(`Password: ${formData.password}`);
+      console.log(`Confirm Password: ${formData.confirmPassword}`);
+
+      // Check if passwords match
+      if (formData.password !== formData.confirmPassword) {
+        console.error("Passwords do not match!");
+        return;
+      }
+
+      // Add error handling for empty fields
+      if (!formData.email || !formData.password) {
+        throw new Error("Email and password are required");
+      }
+
       // Create user with email and password
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -77,10 +86,15 @@ const SignUpPage = () => {
       });
 
       console.log("Additional user data saved successfully.");
-      // Optionally navigate the user to the next screen after successful sign up
-      navigation.navigate("Home");
+      // The AuthProvider will automatically detect the auth state change
+      // and update the user context, which will trigger the navigation
+      // No need to manually navigate here
     } catch (error) {
       console.error("Error signing up:", error.message);
+      Alert.alert("Error", error.message);
+      // Handle error appropriately
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -186,9 +200,10 @@ const SignUpPage = () => {
           </View>
 
           <CustomButton
-            title="Sign Up"
+            title={isLoading ? "Signing up..." : "Sign Up"}
             onPress={handleSignUp}
             style={styles.signUpButton}
+            disabled={isLoading}
           />
 
           <Text style={styles.loginPrompt}>
