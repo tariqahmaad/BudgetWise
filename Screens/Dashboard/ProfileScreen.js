@@ -118,7 +118,7 @@ const ProfileScreen = () => {
             <View style={styles.settingItemRight}>
                 {badgeCount > 0 && (
                     <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{badgeCount}</Text>
+                        <Text style={styles.badgeText}>{badgeCount.toString()}</Text>
                     </View>
                 )}
                 <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
