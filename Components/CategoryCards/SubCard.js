@@ -10,9 +10,15 @@ const cardHeight = height * 0.18; // 18% of screen height
 const iconSize = cardWidth * 0.22; // 22% of card width
 const backgroundIconSize = cardWidth * 0.32; // 32% of card width
 
+// Standardized margins
+const CARD_MARGINS = {
+  vertical: height * 0.01, // 2% of screen height
+  horizontal: width * 0.035, // 3.5% of screen width
+};
+
 const SubCard = ({ Category, amount, description, backgroundColor, iconName, rotation = '0deg', isLast = false }) => {
   return (
-    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 1 : 15 }]}>
+    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 0 : CARD_MARGINS.horizontal }]}>
       <View style={styles.overlay} />
       <Ionicons
         name={iconName}
@@ -41,6 +47,7 @@ const styles = StyleSheet.create({
     padding: width * 0.05, // 5% of screen width
     alignItems: "flex-start",
     justifyContent: "center",
+    marginVertical: CARD_MARGINS.vertical,
     ...Platform.select({
       ios: {
         shadowColor: "#000",

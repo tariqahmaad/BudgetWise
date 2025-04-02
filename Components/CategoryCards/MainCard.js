@@ -8,6 +8,12 @@ const cardWidth = width * 0.9; // 90% of screen width
 const cardHeight = height * 0.22; // 22% of screen height
 const imageSize = cardWidth * 0.5; // 50% of card width
 
+// Standardized margins
+const CARD_MARGINS = {
+  vertical: height * 0.01, // 2% of screen height
+  horizontal: width * 0.035, // 3.5% of screen width
+};
+
 const MainCard = ({
   title,
   amount,
@@ -19,7 +25,7 @@ const MainCard = ({
   isLast = false,
 }) => {
   return (
-    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 1 : 13 }]}>
+    <View style={[styles.card, { backgroundColor, marginRight: isLast ? 0 : CARD_MARGINS.horizontal }]}>
       <View style={styles.content}>
         {Frame && (
           <Image
@@ -49,7 +55,7 @@ const styles = StyleSheet.create({
     height: cardHeight,
     borderRadius: 25,
     padding: width * 0.06, // 6% of screen width
-    marginVertical: height * 0.02, // 2% of screen height
+    marginVertical: CARD_MARGINS.vertical,
     ...Platform.select({
       ios: {
         shadowColor: "#000",

@@ -2,11 +2,11 @@ import {
   StyleSheet,
   Platform,
   StatusBar,
-  SafeAreaView,
   View,
 } from "react-native";
 import React from "react";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ScreenWrapper = (props) => {
   const {
@@ -15,29 +15,24 @@ const ScreenWrapper = (props) => {
     backgroundColor = "#fff", // default background color is white
   } = props;
 
-  // On Android, manually get the status bar height to add padding
-  // iOS handles this via SafeAreaView already
-  const paddingTop =
-    Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : 0;
+  const insets = useSafeAreaInsets();
+  const paddingTop = Platform.OS === "android" ? StatusBar.currentHeight ?? 0 : insets.top;
 
   return (
     // SafeAreaView helps avoid notches and system UI overlap
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor, paddingTop }]}>
       {/* ExpoStatusBar lets you control status bar icon color (light/dark) */}
       <ExpoStatusBar style={statusBarStyle} />
 
       {/* Container View holds your screen content, adds top padding on Android */}
-      <View style={[styles.container, { paddingTop }]}>{children}</View>
-    </SafeAreaView>
+      {children}
+    </View>
   );
 };
 
 export default ScreenWrapper;
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },

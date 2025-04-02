@@ -1,29 +1,25 @@
-import { StyleSheet, Text, View, SafeAreaView } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import React from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
+import ScreenWrapper from "../../Components/ScreenWrapper";
 
 const SummaryScreen = () => {
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <ScreenWrapper backgroundColor={COLORS.appBackground}>
             <View style={styles.container}>
                 <View style={styles.content}>
                     <Text style={styles.title}>Summary</Text>
                 </View>
                 <NavigationBar />
             </View>
-        </SafeAreaView>
+        </ScreenWrapper>
     );
 };
 
 export default SummaryScreen;
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: COLORS.appBackground,
-        paddingTop: 35,
-    },
     container: {
         flex: 1,
         backgroundColor: COLORS.appBackground,

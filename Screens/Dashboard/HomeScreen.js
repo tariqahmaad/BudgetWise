@@ -1,10 +1,12 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Image, Dimensions, FlatList } from "react-native";
-import React, { useState } from "react";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator } from "react-native";
+import React, { useState, useEffect } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
 import MainCard from "../../Components/CategoryCards/MainCard";
 import SubCard from "../../Components/CategoryCards/SubCard";
 import { Ionicons } from '@expo/vector-icons';
+import ScreenWrapper from "../../Components/ScreenWrapper";
+import { auth, firestore, collection, getDocs, onSnapshot, doc, getDoc } from "../../firebase/firebaseConfig";
 
 // Constants for card dimensions and spacing
 const CARD_DIMENSIONS = {
@@ -19,84 +21,6 @@ const CARD_DIMENSIONS = {
         totalWidth: 295 + 15
     }
 };
-
-// Define data arrays for FlatLists
-const mainCardsData = [
-    {
-        id: 'balance',
-        title: "Available Balance",
-        amount: "$3,578",
-        amountColor: "white",
-        description: "See details",
-        backgroundColor: "#012249",
-        Frame: require("../../assets/card-animation1.png"),
-    },
-    {
-        id: 'income',
-        title: "Total Income",
-        amount: "$3,578.00",
-        amountColor: "lightgreen",
-        backgroundColor: "#2F2F42",
-        Frame: require("../../assets/guy-animation.png"),
-        extraField: [
-            { label: "Total Expenses", value: "$3,578.00", color: "#FF7C7C" },
-        ],
-    },
-    {
-        id: 'saving',
-        title: "Total Saving",
-        amount: "$0.00",
-        amountColor: "white",
-        description: "See details",
-        backgroundColor: "#AF7700",
-        Frame: require("../../assets/money-animation.png"),
-    }
-];
-
-const subCardsData = [
-    {
-        id: 'food',
-        Category: "Food",
-        amount: "$3,578.28",
-        description: "Available balance $750.20",
-        backgroundColor: "#2D8F78",
-        iconName: "pizza-outline",
-        rotation: "40deg"
-    },
-    {
-        id: 'groceries',
-        Category: "Groceries",
-        amount: "$3,578.28",
-        description: "Available balance $750.20",
-        backgroundColor: "#E1B345",
-        iconName: "basket-outline"
-    },
-    {
-        id: 'shopping',
-        Category: "Shopping",
-        amount: "$3,578.28",
-        description: "Available balance $750.20",
-        backgroundColor: "#0D60C4",
-        iconName: "bag-outline"
-    },
-    {
-        id: 'travel',
-        Category: "Travel and vacation",
-        amount: "$3,578.28",
-        description: "Available balance $750.20",
-        backgroundColor: "#0B2749",
-        iconName: "airplane-outline",
-        rotation: "-40deg"
-    },
-    {
-        id: 'fees',
-        Category: "Bank Fees",
-        amount: "$3,578.28",
-        description: "Available balance $750.20",
-        backgroundColor: "#1C4A3E",
-        iconName: "business-outline"
-    }
-];
 
 // Define sample transaction data
 const transactionData = [
@@ -125,10 +49,110 @@ const transactionData = [
 ];
 
 const HomeScreen = () => {
-    // State management for card pagination
+    // State management
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
+    const [mainCardsData, setMainCardsData] = useState([]);
+    const [categoriesData, setCategoriesData] = useState([]);
+    const [accountsLoading, setAccountsLoading] = useState(true);
+    const [categoriesLoading, setCategoriesLoading] = useState(true);
+    const [userData, setUserData] = useState({ name: '', surname: '' });
     const { width } = Dimensions.get('window');
+
+    // Fetch accounts data from Firestore
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) {
+            setAccountsLoading(false);
+            return;
+        }
+        setAccountsLoading(true);
+        const accountsRef = collection(firestore, "users", user.uid, "accounts");
+        const unsubscribe = onSnapshot(accountsRef, (querySnapshot) => {
+            const accounts = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    title: data.title,
+                    amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                    amountColor: data.amountColor || "white",
+                    description: "See details",
+                    backgroundColor: data.backgroundColor || "#012249",
+                    type: data.type,
+                    Frame: data.type === 'balance' ? require("../../assets/card-animation1.png") :
+                        data.type === 'income_tracker' ? require("../../assets/guy-animation.png") :
+                            require("../../assets/money-animation.png"),
+                    extraField: data.type === 'income_tracker' ? [
+                        { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
+                        { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
+                    ] : []
+                };
+            });
+            setMainCardsData(accounts);
+            setAccountsLoading(false);
+        }, (error) => {
+            console.error("Error fetching accounts: ", error);
+            setAccountsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Fetch categories data from Firestore
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) {
+            setCategoriesLoading(false);
+            return;
+        }
+        setCategoriesLoading(true);
+        const categoriesRef = collection(firestore, "users", user.uid, "categories");
+        const unsubscribe = onSnapshot(categoriesRef, (querySnapshot) => {
+            const categories = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    Category: data.name,
+                    amount: "$0.00",
+                    description: "No spending yet",
+                    backgroundColor: data.backgroundColor,
+                    iconName: data.iconName,
+                };
+            });
+            setCategoriesData(categories);
+            setCategoriesLoading(false);
+        }, (error) => {
+            console.error("Error fetching categories: ", error);
+            setCategoriesLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Fetch user data from Firestore
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const fetchUserData = async () => {
+            try {
+                const userDocRef = doc(firestore, "users", user.uid);
+                const userDoc = await getDoc(userDocRef);
+
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setUserData({
+                        name: data.name || '',
+                        surname: data.surname || ''
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+            }
+        };
+
+        fetchUserData();
+    }, []);
 
     // Sample data
     const friends = [
@@ -141,20 +165,22 @@ const HomeScreen = () => {
 
     // Event handlers
     const handleFriendPress = (friend) => {
-        console.log(`Navigating to debt tracking with ${friend.name}`);
+        console.log("Navigation to debt tracking with", friend.name);
         // Navigation logic would go here
     };
 
     const handleMainScroll = (event) => {
+        if (accountsLoading || mainCardsData.length === 0) return;
         const contentOffset = event.nativeEvent.contentOffset.x;
         const index = Math.round(contentOffset / CARD_DIMENSIONS.mainCard.totalWidth);
-        setMainCardIndex(index);
+        setMainCardIndex(Math.min(Math.max(index, 0), mainCardsData.length - 1));
     };
 
     const handleSubScroll = (event) => {
+        if (categoriesLoading || categoriesData.length === 0) return;
         const contentOffset = event.nativeEvent.contentOffset.x;
         const index = Math.round(contentOffset / CARD_DIMENSIONS.subCard.totalWidth);
-        setSubCardIndex(index);
+        setSubCardIndex(Math.min(Math.max(index, 0), categoriesData.length - 1));
     };
 
     // UI Components
@@ -184,29 +210,46 @@ const HomeScreen = () => {
             backgroundColor={item.backgroundColor}
             Frame={item.Frame}
             extraField={item.extraField}
-            isLast={index === mainCardsData.length - 1}
         />
     );
 
-    const renderMainCards = () => (
-        <View>
-            <FlatList
-                data={mainCardsData}
-                renderItem={renderMainCardItem}
-                keyExtractor={item => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.flatListContentContainer}
-                onScroll={handleMainScroll}
-                scrollEventThrottle={16}
-                snapToInterval={CARD_DIMENSIONS.mainCard.totalWidth}
-                decelerationRate="fast"
-                snapToAlignment="start"
-                pagingEnabled
-            />
-            {renderPaginationDots(mainCardIndex, mainCardsData.length, { marginTop: 10 })}
-        </View>
-    );
+    const renderMainCards = () => {
+        if (accountsLoading) {
+            return (
+                <View style={[styles.cardContainerHeight, styles.loadingContainer]}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+            );
+        }
+
+        if (mainCardsData.length === 0) {
+            return (
+                <View style={[styles.cardContainerHeight, styles.emptyState]}>
+                    <Ionicons name="wallet-outline" size={50} color={COLORS.gray} />
+                    <Text style={styles.emptyText}>No Accounts Yet</Text>
+                    <Text style={styles.emptySubText}>Add your bank accounts or income trackers in Settings.</Text>
+                </View>
+            );
+        }
+
+        return (
+            <View>
+                <FlatList
+                    data={mainCardsData}
+                    renderItem={renderMainCardItem}
+                    keyExtractor={item => item.id}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.flatListContentContainer}
+                    onScroll={handleMainScroll}
+                    scrollEventThrottle={16}
+                    snapToInterval={CARD_DIMENSIONS.mainCard.totalWidth}
+                    decelerationRate="fast"
+                />
+                {mainCardsData.length > 1 && renderPaginationDots(mainCardIndex, mainCardsData.length, { marginTop: 10 })}
+            </View>
+        );
+    };
 
     // Render Friends using FlatList
     const renderFriendItem = ({ item }) => (
@@ -268,37 +311,58 @@ const HomeScreen = () => {
             description={item.description}
             backgroundColor={item.backgroundColor}
             iconName={item.iconName}
-            rotation={item.rotation}
-            isLast={index === subCardsData.length - 1}
         />
     );
 
-    const renderSubCards = () => (
-        <View>
-            <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Spending Categories</Text>
-                <TouchableOpacity>
-                    <Text style={styles.seeAllText}>See All</Text>
-                </TouchableOpacity>
-            </View>
+    const renderSubCards = () => {
+        if (categoriesLoading) {
+            return (
+                <View style={[styles.cardContainerHeight, styles.loadingContainer]}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+            );
+        }
 
-            <FlatList
-                data={subCardsData}
-                renderItem={renderSubCardItem}
-                keyExtractor={item => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.flatListContentContainer}
-                onScroll={handleSubScroll}
-                scrollEventThrottle={16}
-                snapToInterval={CARD_DIMENSIONS.subCard.totalWidth}
-                decelerationRate="fast"
-                snapToAlignment="start"
-                pagingEnabled
-            />
-            {renderPaginationDots(subCardIndex, subCardsData.length, { marginTop: 10 })}
-        </View>
-    );
+        if (categoriesData.length === 0) {
+            return (
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Spending Categories</Text>
+                    </View>
+                    <View style={[styles.cardContainerHeight, styles.emptyState, { paddingHorizontal: 20 }]}>
+                        <Ionicons name="layers-outline" size={50} color={COLORS.gray} />
+                        <Text style={styles.emptyText}>No Categories Yet</Text>
+                        <Text style={styles.emptySubText}>Add spending categories in Settings to track your budget.</Text>
+                    </View>
+                </View>
+            );
+        }
+
+        return (
+            <View>
+                <View style={styles.sectionContainer}>
+                    <Text style={styles.sectionTitle}>Spending Categories</Text>
+                    <TouchableOpacity onPress={() => console.log("Navigate to See All Categories")}>
+                        <Text style={styles.seeAllText}>See All</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <FlatList
+                    data={categoriesData}
+                    renderItem={renderSubCardItem}
+                    keyExtractor={item => item.id}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.flatListContentContainer}
+                    onScroll={handleSubScroll}
+                    scrollEventThrottle={16}
+                    snapToInterval={CARD_DIMENSIONS.subCard.totalWidth}
+                    decelerationRate="fast"
+                />
+                {categoriesData.length > 1 && renderPaginationDots(subCardIndex, categoriesData.length, { marginTop: 10 })}
+            </View>
+        );
+    };
 
     // Render a single transaction item
     const renderTransactionItem = ({ item }) => (
@@ -324,8 +388,8 @@ const HomeScreen = () => {
                 data={item.data}
                 renderItem={renderTransactionItem}
                 keyExtractor={transaction => transaction.id}
-                scrollEnabled={false} // Disable scrolling for inner list
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />} // Add space between items
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
             />
         </View>
     );
@@ -338,18 +402,17 @@ const HomeScreen = () => {
                     <Text style={styles.seeAllButton}>See All</Text>
                 </TouchableOpacity>
             </View>
-            {/* Use FlatList to render transaction groups */}
             <FlatList
                 data={transactionData}
                 renderItem={renderTransactionGroup}
                 keyExtractor={group => group.title}
-                scrollEnabled={false} // Disable scrolling for outer list if main ScrollView handles it
+                scrollEnabled={false}
             />
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <ScreenWrapper backgroundColor={COLORS.appBackground}>
             <View style={styles.container}>
                 {/* User Profile Section */}
                 <View style={styles.profileSection}>
@@ -362,7 +425,11 @@ const HomeScreen = () => {
                         />
                         <View style={styles.welcomeTextContainer}>
                             <Text style={styles.welcomeText}>Welcome back,</Text>
-                            <Text style={styles.userName}>Firstname Lastname</Text>
+                            <Text style={styles.userName}>
+                                {userData.name && userData.surname
+                                    ? `${userData.name} ${userData.surname}`
+                                    : 'User'}
+                            </Text>
                         </View>
                     </View>
                     <TouchableOpacity style={styles.notificationContainer}>
@@ -375,7 +442,7 @@ const HomeScreen = () => {
                 </View>
 
                 {/* Main content with ScrollViews */}
-                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
                     {renderMainCards()}
                     {renderFriendsSection()}
                     {renderSubCards()}
@@ -386,18 +453,13 @@ const HomeScreen = () => {
                 {/* Navigation Bar */}
                 <NavigationBar />
             </View>
-        </SafeAreaView>
+        </ScreenWrapper>
     );
 };
 
 export default HomeScreen;
 
 const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: COLORS.appBackground,
-        paddingTop: 35,
-    },
     container: {
         flex: 1,
         backgroundColor: COLORS.appBackground,
@@ -444,7 +506,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 15,
+        paddingVertical: 13,
         paddingHorizontal: 20,
     },
     sectionTitle: {
@@ -568,7 +630,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 25,
     },
     dot: {
         width: 8,
@@ -583,5 +645,28 @@ const styles = StyleSheet.create({
     inactiveDot: {
         backgroundColor: "#0066FF",
         opacity: 0.3,
+    },
+    cardContainerHeight: {
+        minHeight: 200,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingContainer: {
+    },
+    emptyState: {
+        paddingHorizontal: 40,
+    },
+    emptyText: {
+        fontSize: 18,
+        color: COLORS.text,
+        fontFamily: "Poppins-SemiBold",
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    emptySubText: {
+        fontSize: 14,
+        color: COLORS.gray,
+        fontFamily: "Poppins-Regular",
+        textAlign: 'center',
     },
 });

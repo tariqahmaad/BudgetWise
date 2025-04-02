@@ -100,4 +100,27 @@ export const SHADOWS = {
     }
 };
 
+
+// Account types for selection
+export const ACCOUNT_TYPES = [
+    { label: 'Balance Tracking', value: 'balance' },
+    { label: 'Income/Expense Tracker', value: 'income_tracker' },
+    { label: 'Savings Goal', value: 'savings_goal' },
+];
+
+// Default category colors for selection
+export const DEFAULT_CATEGORY_COLORS = [
+    { label: 'Teal', value: '#2D8F78' },
+    { label: 'Yellow', value: '#E1B345' },
+    { label: 'Blue', value: '#0D60C4' },
+    { label: 'Dark Blue', value: '#0B2749' },
+    { label: 'Dark Green', value: '#1C4A3E' },
+    { label: 'Orange', value: '#AF7700' },
+    { label: 'Red', value: '#FF3B30' },
+    { label: 'Purple', value: '#AF52DE' },
+    { label: 'Gray', value: '#8E8E93' },
+    { label: 'Black', value: '#000000' },
+];
+
+
 // ... rest of the existing constants ... 

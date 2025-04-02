@@ -7,6 +7,7 @@ import HomeScreen from "../Screens/Dashboard/HomeScreen";
 import SummaryScreen from "../Screens/Dashboard/SummaryScreen";
 import AIScreen from "../Screens/Dashboard/AIScreen";
 import SettingsScreen from "../Screens/Dashboard/SettingsScreen";
+import ProfileScreen from "../Screens/Dashboard/ProfileScreen";
 import NavigationBar from "../Components/NavBar/NavigationBar";
 import { COLORS, HEADER_STYLE } from "../constants/theme";
 import SignUpPage from "../Screens/Authenication/SignUpPage";
@@ -49,6 +50,7 @@ const DashboardStack = () => (
     <Stack.Screen name="Summary" component={SummaryScreen} />
     <Stack.Screen name="AI" component={AIScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
+    <Stack.Screen name="Profile" component={ProfileScreen} />
   </Stack.Navigator>
 );
 
