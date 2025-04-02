@@ -1,5 +1,6 @@
 
 
+
 import React from "react";
 import { View, ScrollView, TouchableOpacity, TextInput, Text, StyleSheet, SafeAreaView } from "react-native";
 import MainCard from "../../Components/CategoryCards/MainCard";
