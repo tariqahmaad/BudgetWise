@@ -6,4 +6,5 @@ export default {
   mailIcon: require('../assets/icons/mail-icon.png'),
   passwordIcon: require('../assets/icons/password-icon.png'),
   phoneIcon: require('../assets/icons/phone-icon.png'),
+  profilePic: require('../assets/profile-pic.png'),
 };

@@ -7,6 +7,7 @@ import SubCard from "../../Components/CategoryCards/SubCard";
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import { auth, firestore, collection, getDocs, onSnapshot, doc, getDoc } from "../../firebase/firebaseConfig";
+import Images from "../../constants/Images";
 
 // Constants for card dimensions and spacing
 const CARD_DIMENSIONS = {
@@ -48,7 +49,7 @@ const transactionData = [
     },
 ];
 
-const HomeScreen = () => {
+const HomeScreen = ({ navigation }) => {
     // State management
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
@@ -56,7 +57,11 @@ const HomeScreen = () => {
     const [categoriesData, setCategoriesData] = useState([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
-    const [userData, setUserData] = useState({ name: '', surname: '' });
+    const [userData, setUserData] = useState({
+        name: '',
+        surname: '',
+        avatar: Images.profilePic  // Add avatar to initial state
+    });
     const { width } = Dimensions.get('window');
 
     // Fetch accounts data from Firestore
@@ -143,7 +148,8 @@ const HomeScreen = () => {
                     const data = userDoc.data();
                     setUserData({
                         name: data.name || '',
-                        surname: data.surname || ''
+                        surname: data.surname || '',
+                        avatar: data.avatar ? { uri: data.avatar } : Images.profilePic
                     });
                 }
             } catch (error) {
@@ -417,12 +423,21 @@ const HomeScreen = () => {
                 {/* User Profile Section */}
                 <View style={styles.profileSection}>
                     <View style={styles.profileContainer}>
-                        <Ionicons
-                            name="person-circle-outline"
-                            size={40}
-                            color={COLORS.text}
-                            style={styles.profileImage}
-                        />
+                        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+                            {userData.avatar ? (
+                                <Image
+                                    source={userData.avatar}
+                                    style={[styles.profileImage, { borderRadius: 20 }]}
+                                />
+                            ) : (
+                                <Ionicons
+                                    name="person-circle-outline"
+                                    size={40}
+                                    color={COLORS.text}
+                                    style={styles.profileImage}
+                                />
+                            )}
+                        </TouchableOpacity>
                         <View style={styles.welcomeTextContainer}>
                             <Text style={styles.welcomeText}>Welcome back,</Text>
                             <Text style={styles.userName}>
@@ -478,7 +493,10 @@ const styles = StyleSheet.create({
         marginLeft: 10,
     },
     profileImage: {
+        width: 50,
+        height: 50,
         marginRight: 15,
+
     },
     welcomeTextContainer: {
         flexDirection: "column",

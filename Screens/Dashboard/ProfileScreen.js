@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
+import Images from "../../constants/Images";
 import {
     auth,
     firestore,
@@ -30,7 +31,8 @@ const ProfileScreen = () => {
         name: '',
         surname: '',
         email: user?.email || '',
-        avatar: null,
+        avatar: Images.profilePic,
+
     });
     const [fadeAnim] = useState(new Animated.Value(0));
 
@@ -55,7 +57,7 @@ const ProfileScreen = () => {
                         name: data.name || '',
                         surname: data.surname || '',
                         email: user.email || '',
-                        avatar: data.avatar || null,
+                        avatar: data.avatar || Images.profilePic,
                     });
                 }
             } catch (error) {
@@ -197,7 +199,7 @@ const ProfileScreen = () => {
                     >
                         <View style={styles.profileSection}>
                             {userData.avatar ? (
-                                <Image source={{ uri: userData.avatar }} style={styles.avatar} />
+                                <Image source={userData.avatar} style={styles.avatar} />
                             ) : (
                                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                                     <Ionicons name="person" size={40} color="#4B5563" />
