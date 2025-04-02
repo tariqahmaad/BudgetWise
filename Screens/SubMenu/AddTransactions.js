@@ -20,11 +20,7 @@ const AddTransactions = ({ navigation }) => {
     //handeling the input type in firestore
   };
 
-  // Validation
-  // if (!amount || !date || !description || !category) {
-  //   alert("Please fill in all fields");
-  //   return;
-  // }
+
   const handleSaveTransaction = () => {
     console.log("Saving transaction", {
       type: transactionType,

@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 
-import React, { useState, useEffect } from "react";
+import React, { useState} from "react";
 import HorizontalLine from "../HorizontalLine";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -63,7 +63,7 @@ const INPUT_CONFIG = {
   amount: {
     placeholder: "0.00",
     keyboardType: "numeric",
-    icon: "dollar-sign", // or "cash-outline" if using MaterialCommunityIcons
+    icon: "dollar-sign", 
     iconType: "Feather",
     autoCapitalize: "none",
     secureTextEntry: false,
@@ -75,7 +75,6 @@ const INPUT_CONFIG = {
     iconType: "Feather",
     autoCapitalize: "none",
     secureTextEntry: false,
-    isDatePicker: true, // Add this flag
   },
   description: {
     placeholder: "What was this for?",
@@ -112,7 +111,7 @@ const getInputConfig = (title) => {
       iconType: "Feather",
       autoCapitalize: "none",
       secureTextEntry: false,
-      isDatePicker: false, //this line has been added
+    
     }
   );
 };
@@ -132,13 +131,13 @@ const InputField = ({
   const config = getInputConfig(title);
   const IconComponent = IconComponents[config.iconType];
 
-  // Date picker state variables
+ 
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
-  // Make sure this function is defined
+  
   const handleDateSet = () => {
     if (selectedDay && selectedMonth && selectedYear) {
       const formattedDate = `${selectedDay}/${selectedMonth}/${selectedYear}`;
