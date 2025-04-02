@@ -8,7 +8,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 
-import React, { useState} from "react";
+import React, { useState, useEffect } from "react";
 import HorizontalLine from "../HorizontalLine";
 import Feather from "@expo/vector-icons/Feather";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -75,6 +75,7 @@ const INPUT_CONFIG = {
     iconType: "Feather",
     autoCapitalize: "none",
     secureTextEntry: false,
+    isDatePicker: true,
   },
   description: {
     placeholder: "What was this for?",
@@ -111,7 +112,7 @@ const getInputConfig = (title) => {
       iconType: "Feather",
       autoCapitalize: "none",
       secureTextEntry: false,
-    
+      isDatePicker: false,
     }
   );
 };
@@ -137,12 +138,86 @@ const InputField = ({
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
-  
+  const validateDay = (value) => {
+    // Allow only numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    // Convert to number and ensure it's between 1-31
+    const day = parseInt(numericValue, 10);
+    if (!isNaN(day)) {
+      if (day > 31) return '31';
+      if (day < 1 && numericValue.length > 0) return '1';
+    }
+    return numericValue;
+  };
+
+  const validateMonth = (value) => {
+    // Allow only numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    // Convert to number and ensure it's between 1-12
+    const month = parseInt(numericValue, 10);
+    if (!isNaN(month)) {
+      if (month > 12) return '12';
+      if (month < 1 && numericValue.length > 0) return '1';
+    }
+    return numericValue;
+  };
+
+  const validateYear = (value) => {
+    // Allow only numbers
+    const numericValue = value.replace(/[^0-9]/g, '');
+    
+    // Convert to number and ensure it's within the allowed range
+    if (numericValue.length === 4) {
+      const year = parseInt(numericValue, 10);
+      const currentYear = 2025; // You can use new Date().getFullYear() for current year
+      const minYear = currentYear - 30; // 20 years before 2025 = 2005
+      const maxYear = currentYear + 10; // 10 years after 2025 = 2035
+    
+      if (year < minYear) return minYear.toString();
+      if (year > maxYear) return maxYear.toString();
+    }
+    
+    return numericValue;
+  };
+
   const handleDateSet = () => {
     if (selectedDay && selectedMonth && selectedYear) {
-      const formattedDate = `${selectedDay}/${selectedMonth}/${selectedYear}`;
+      // Parse values to integers
+      const day = parseInt(selectedDay, 10);
+      const month = parseInt(selectedMonth, 10);
+      const year = parseInt(selectedYear, 10);
+    
+      // Validate year range
+      const currentYear = 2025; // You can use new Date().getFullYear() for current year
+      const minYear = currentYear - 30;
+      const maxYear = currentYear + 10;
+    
+      if (year < minYear || year > maxYear) {
+        alert(`Please enter a year between ${minYear} and ${maxYear}`);
+        return;
+      }
+    
+      // Check if date is valid (handles leap years, month lengths, etc.)
+      const date = new Date(year, month - 1, day);
+      if (
+        date.getFullYear() !== year || 
+        date.getMonth() !== month - 1 || 
+        date.getDate() !== day
+      ) {
+        // This is an invalid date (like February 31)
+        alert("Please enter a valid date");
+        return;
+      }
+    
+      // Format day and month to ensure leading zeros
+      const formattedDay = day.toString().padStart(2, '0');
+      const formattedMonth = month.toString().padStart(2, '0');
+    
+      const formattedDate = `${formattedDay}/${formattedMonth}/${year}`;
       onChangeText(formattedDate);
       setShowDateModal(false);
+    } else {
+      alert("Please complete all date fields");
     }
   };
 
@@ -208,7 +283,10 @@ const InputField = ({
           // For date fields, show a touchable area
           <TouchableOpacity
             style={styles.datePickerTouchable}
-            onPress={showDatePickerModal}
+            onPress={() => {
+              console.log("Date field pressed");
+              showDatePickerModal();
+            }}
           >
             <Text
               style={[
