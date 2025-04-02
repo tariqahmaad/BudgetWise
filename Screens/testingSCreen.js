@@ -2,7 +2,7 @@ import React from "react";
 import { View, ScrollView, TouchableOpacity } from "react-native";
 import MainCard from "../Components/CategoryCards/MainCard";
 import SubCard from "../Components/CategoryCards/SubCard";
-import Ionicons from "react-native-vector-icons/Ionicons";
+import FriendCard from "../Components/FriendCards/FriendCard";
 
 const testingScreen = ({ navigation }) => {
   return (
@@ -96,6 +96,11 @@ const testingScreen = ({ navigation }) => {
           iconName="business-outline"
         />
       </ScrollView>
+      <FriendCard 
+       avatar={require("../assets/Avatar01.png")}
+        name="Jane Cooper"
+        email="manhhachtk08@gmail.com"
+      />
     </>
   );
 };
