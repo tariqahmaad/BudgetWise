@@ -132,54 +132,16 @@ const InputField = ({
   const config = getInputConfig(title);
   const IconComponent = IconComponents[config.iconType];
 
- 
+ //the new added code start from here 
+
+  //the following state vars added
   const [showDateModal, setShowDateModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
 
-  const validateDay = (value) => {
-    // Allow only numbers
-    const numericValue = value.replace(/[^0-9]/g, '');
-    // Convert to number and ensure it's between 1-31
-    const day = parseInt(numericValue, 10);
-    if (!isNaN(day)) {
-      if (day > 31) return '31';
-      if (day < 1 && numericValue.length > 0) return '1';
-    }
-    return numericValue;
-  };
-
-  const validateMonth = (value) => {
-    // Allow only numbers
-    const numericValue = value.replace(/[^0-9]/g, '');
-    // Convert to number and ensure it's between 1-12
-    const month = parseInt(numericValue, 10);
-    if (!isNaN(month)) {
-      if (month > 12) return '12';
-      if (month < 1 && numericValue.length > 0) return '1';
-    }
-    return numericValue;
-  };
-
-  const validateYear = (value) => {
-    // Allow only numbers
-    const numericValue = value.replace(/[^0-9]/g, '');
-    
-    // Convert to number and ensure it's within the allowed range
-    if (numericValue.length === 4) {
-      const year = parseInt(numericValue, 10);
-      const currentYear = 2025; // You can use new Date().getFullYear() for current year
-      const minYear = currentYear - 30; // 20 years before 2025 = 2005
-      const maxYear = currentYear + 10; // 10 years after 2025 = 2035
-    
-      if (year < minYear) return minYear.toString();
-      if (year > maxYear) return maxYear.toString();
-    }
-    
-    return numericValue;
-  };
-
+  //the following function handle selecting the date and make sure that the date is a vaild number
+ 
   const handleDateSet = () => {
     if (selectedDay && selectedMonth && selectedYear) {
       // Parse values to integers
@@ -188,10 +150,11 @@ const InputField = ({
       const year = parseInt(selectedYear, 10);
     
       // Validate year range
-      const currentYear = 2025; // You can use new Date().getFullYear() for current year
-      const minYear = currentYear - 30;
-      const maxYear = currentYear + 10;
-    
+      const currentYear = 2025; 
+      const minYear = currentYear - 30; //1995
+      const maxYear = currentYear + 10; //2035
+
+      // Check if year is within the valid range
       if (year < minYear || year > maxYear) {
         alert(`Please enter a year between ${minYear} and ${maxYear}`);
         return;
@@ -209,17 +172,19 @@ const InputField = ({
         return;
       }
     
-      // Format day and month to ensure leading zeros
+      // Format day and month to ensure leading zeros even if the user does not enter them
       const formattedDay = day.toString().padStart(2, '0');
       const formattedMonth = month.toString().padStart(2, '0');
     
       const formattedDate = `${formattedDay}/${formattedMonth}/${year}`;
       onChangeText(formattedDate);
       setShowDateModal(false);
-    } else {
+    } else { 
       alert("Please complete all date fields");
     }
   };
+
+  //the new code ends here 
 
   const handleFocus = () => {
     setIsFocused(true);
@@ -463,6 +428,7 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
     marginTop: SIZES.padding.small,
   },
+  //the new styles added here
   datePickerTouchable: {
     flex: 1,
     flexDirection: "row",

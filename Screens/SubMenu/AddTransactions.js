@@ -49,6 +49,7 @@ const AddTransactions = ({ navigation }) => {
     <View style={styles.container}>
       <BackButton navigation={navigation} />
       <Text style={styles.title}>Add Transactions</Text>
+      <Text style={styles.subText}>You may add your transactions here. Make sure to fill all fields as they improve your overall experience in our application</Text>
       <ToggleSwitch onToggle={handleToggle} />
 
       <ScrollView style={styles.formContainer}>
@@ -103,8 +104,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
+    textAlign: "left",
+    marginBottom: 10,
+    marginLeft:30
   },
   formContainer: {
     flex: 1,
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   notificationBox: {
     backgroundColor: "white",
@@ -144,6 +146,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
+  subText:{
+    fontSize: 14,
+    textAlign: "left",
+    marginLeft:30,
+    color: "#7E848D",
+  }
 });
 
 export default AddTransactions;

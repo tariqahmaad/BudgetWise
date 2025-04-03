@@ -16,7 +16,7 @@ const index = () => {
   return (
 
     <NavigationContainer>
-      <Stack.Navigator  options={{ headerShown: false }}  initialRouteName="addTransaction">
+      <Stack.Navigator  options={{ headerShown: false }}  initialRouteName="debtTracking">
       <Stack.Screen  options={{ headerShown: false }}  name="addTransaction" component={AddTransactions} />
       <Stack.Screen  options={{ headerShown: false }}  name="debtTracking" component={DebtTrcaking} />
        <Stack.Screen  options={{ headerShown: false }}  name="testing" component={testingScreen} />
