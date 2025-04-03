@@ -50,8 +50,7 @@ const AddTransactions = ({ navigation }) => {
       <BackButton navigation={navigation} />
       <Text style={styles.title}>Add Transactions</Text>
       <Text style={styles.subText}>You may add your transactions here. Make sure to fill all fields as they improve your overall experience in our application</Text>
-      <ToggleSwitch onToggle={handleToggle} />
-
+      <ToggleSwitch onToggle={(value) => handleToggle(value)} />
       <ScrollView style={styles.formContainer}>
         <InputField title="Amount" value={amount} onChangeText={setAmount} />
 

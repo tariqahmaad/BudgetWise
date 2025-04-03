@@ -77,6 +77,15 @@ const INPUT_CONFIG = {
     secureTextEntry: false,
     isDatePicker: true,
   },
+  duedate: {
+    placeholder: "Select due date",
+    keyboardType: "default",
+    icon: "calendar",
+    iconType: "Feather",
+    autoCapitalize: "none",
+    secureTextEntry: false,
+    isDatePicker: true,
+  },
   description: {
     placeholder: "What was this for?",
     keyboardType: "default",

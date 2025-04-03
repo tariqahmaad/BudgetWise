@@ -9,6 +9,7 @@ import OnboardingScreen from '../Screens/onboardingScreen';
 import testingScreen from '../Screens/testingSCreen';
 import DebtTrcaking from '../Screens/SubMenu/DebtTracking';
 import AddTransactions from '../Screens/SubMenu/AddTransactions';
+import AddDept from '../Screens/AddDept';
 
 const Stack = createNativeStackNavigator();
 
@@ -17,6 +18,7 @@ const index = () => {
 
     <NavigationContainer>
       <Stack.Navigator  options={{ headerShown: false }}  initialRouteName="debtTracking">
+      <Stack.Screen  options={{ headerShown: false }}  name="addDept" component={AddDept} />
       <Stack.Screen  options={{ headerShown: false }}  name="addTransaction" component={AddTransactions} />
       <Stack.Screen  options={{ headerShown: false }}  name="debtTracking" component={DebtTrcaking} />
        <Stack.Screen  options={{ headerShown: false }}  name="testing" component={testingScreen} />

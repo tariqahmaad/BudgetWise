@@ -7,14 +7,23 @@ import {
   StyleSheet,
 } from "react-native";
 
-const ToggleSwitch = ({ onToggle }) => {
-  const [active, setActive] = useState("Expenses");
-  const animatedValue = useRef(new Animated.Value(0)).current;
+const ToggleSwitch = ({ 
+  leftOption = "Expenses", 
+  rightOption = "Income", 
+  initialValue,
+  onToggle,
+  containerStyle,
+  sliderStyle,
+  textStyle,
+  activeTextStyle
+}) => {
+  const [active, setActive] = useState(initialValue || leftOption);
+  const animatedValue = useRef(new Animated.Value(initialValue === rightOption ? 1 : 0)).current;
 
   const handleToggle = (type) => {
     setActive(type);
     Animated.timing(animatedValue, {
-      toValue: type === "Expenses" ? 0 : 1,
+      toValue: type === leftOption ? 0 : 1,
       duration: 300,
       useNativeDriver: false,
     }).start();
@@ -28,32 +37,43 @@ const ToggleSwitch = ({ onToggle }) => {
     inputRange: [0, 1],
     outputRange: [0, 190], // Adjust this based on button width
   });
+  
   return (
     <View style={styles.container}>
       {/* Background */}
-      <View style={styles.switchBackground}>
+      <View style={[styles.switchBackground, containerStyle]}>
         {/* Sliding Button */}
         <Animated.View
-          style={[styles.slider, { transform: [{ translateX }] }]}
+          style={[styles.slider, sliderStyle, { transform: [{ translateX }] }]}
         />
 
         {/* Clickable Text Buttons */}
         <TouchableOpacity
           style={styles.textContainer}
-          onPress={() => handleToggle("Expenses")}
+          onPress={() => handleToggle(leftOption)}
         >
           <Text
-            style={[styles.text, active === "Expenses" && styles.activeText]}
+            style={[
+              styles.text, 
+              textStyle,
+              active === leftOption && (activeTextStyle || styles.activeText)
+            ]}
           >
-            Expenses
+            {leftOption}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.textContainer}
-          onPress={() => handleToggle("Income")}
+          onPress={() => handleToggle(rightOption)}
         >
-          <Text style={[styles.text, active === "Income" && styles.activeText]}>
-            Income
+          <Text 
+            style={[
+              styles.text, 
+              textStyle,
+              active === rightOption && (activeTextStyle || styles.activeText)
+            ]}
+          >
+            {rightOption}
           </Text>
         </TouchableOpacity>
       </View>
