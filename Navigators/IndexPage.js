@@ -16,6 +16,7 @@ import { AuthProvider, AuthContext } from "../context/AuthProvider";
 import AddDept from "../Screens/Dashboard/SubMenu/AddDept";
 import AddTransactions from "../Screens/Dashboard/SubMenu/AddTransactions";
 import DebtTrcaking from "../Screens/Dashboard/SubMenu/DebtTracking";
+import ForgotPasswordPage from "../Screens/Authenication/ForgotPage";
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -44,6 +45,7 @@ const AuthStack = () => (
   >
     <Stack.Screen name="SignUp" component={SignUpPage} />
     <Stack.Screen name="SignIn" component={LoginPage} />
+    <Stack.Screen name="ForgotPassword" component={ForgotPasswordPage} />
   </Stack.Navigator>
 );
 
@@ -62,7 +64,6 @@ const DashboardStack = () => (
 
 const RootNavigator = () => {
   const { user } = useContext(AuthContext);
-
   return user ? <DashboardStack /> : <AuthStack />;
 };
 
