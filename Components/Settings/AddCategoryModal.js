@@ -241,8 +241,11 @@ const AddCategoryModal = ({ isVisible, onClose, user }) => {
                                             ]}
                                             onPress={() => handleIconSelection(item.name, index)}
                                         >
-                                            <View style={[styles.iconBubble, { backgroundColor: item.color }]}>
-                                                <Ionicons name={item.name} size={24} color="#FFFFFF" />
+                                            <View style={[
+                                                styles.iconBubble,
+                                                selectedIconIndex === index && styles.selectedIconBubble
+                                            ]}>
+                                                <Ionicons name={item.name} size={24} color="#333" />
                                             </View>
                                             <Text style={styles.iconLabel} numberOfLines={1}>
                                                 {item.label}
@@ -451,10 +454,14 @@ const styles = StyleSheet.create({
         width: 56,
         height: 56,
         borderRadius: 28,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
-        ...SHADOWS.small,
+    },
+    selectedIconBubble: {
+        borderWidth: 2,
+        borderColor: COLORS.primary,
     },
     iconLabel: {
         fontSize: SIZES.font.small,

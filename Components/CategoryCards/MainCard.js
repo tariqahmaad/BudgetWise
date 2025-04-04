@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
   },
   amount: {
     fontSize: width * 0.08, // 8% of screen width
-    marginBottom: height * 0.01, // 1% of screen height
+    marginBottom: height * -0.01, // 1% of screen height
     fontFamily: "Poppins-Bold",
   },
   description: {

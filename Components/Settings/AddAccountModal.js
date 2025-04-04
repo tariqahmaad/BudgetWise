@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     Modal,
     View,
@@ -38,6 +38,23 @@ const getLabelFromValue = (options, value) => {
     const option = options.find(opt => opt.value === value);
     return option ? option.label : 'Select...';
 };
+
+const LabeledInput = ({ label, error, ...props }) => (
+    <>
+        <Text style={styles.label}>{label}</Text>
+        <TextInput
+            style={[styles.input, error && styles.inputError]}
+            placeholderTextColor={COLORS.gray}
+            {...props}
+        />
+        {error ? (
+            <View style={styles.errorRow}>
+                <Ionicons name="alert-circle" size={16} color={COLORS.danger} style={{ marginRight: 4 }} />
+                <Text style={styles.errorText}>{error}</Text>
+            </View>
+        ) : null}
+    </>
+);
 
 const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoading, isLoading }) => {
     const titleInputRef = useRef(null);
@@ -134,6 +151,13 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
         }, 300);
     };
 
+    const isFormValid = useMemo(() => {
+        if (!accountTitle.trim()) return false;
+        if (accountType === 'balance' && !initialBalance) return false;
+        if (accountType === 'savings_goal' && !savingGoal) return false;
+        return true;
+    }, [accountTitle, accountType, initialBalance, savingGoal]);
+
     const handleSaveAccount = async () => {
         Keyboard.dismiss();
 
@@ -225,6 +249,11 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                 onPress={handleClose}
             >
                 <View style={styles.modalView} onStartShouldSetResponder={() => true}>
+                    {isLoading && (
+                        <View style={styles.loadingOverlay}>
+                            <ActivityIndicator size="large" color={COLORS.primary} />
+                        </View>
+                    )}
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Add New Account</Text>
                         <TouchableOpacity
@@ -241,19 +270,16 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                         keyboardShouldPersistTaps="handled"
                         showsVerticalScrollIndicator={false}
                     >
-                        <Text style={styles.label}>Account Title *</Text>
-                        <TextInput
-                            ref={titleInputRef}
-                            style={[styles.input, accountTitleError ? styles.inputError : null]}
-                            placeholder="e.g., Main Checking, Holiday Fund"
+                        <LabeledInput
+                            label="Account Title *"
+                            error={accountTitleError}
                             value={accountTitle}
                             onChangeText={handleAccountTitleChange}
-                            placeholderTextColor={COLORS.gray}
+                            placeholder="e.g., Main Checking, Holiday Fund"
                             maxLength={30}
                             returnKeyType="next"
                             onSubmitEditing={() => setAccountTypeModalVisible(true)}
                         />
-                        {accountTitleError ? <Text style={styles.errorText}>{accountTitleError}</Text> : null}
 
                         <Text style={styles.label}>Account Type *</Text>
                         <TouchableOpacity
@@ -262,8 +288,8 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                             disabled={isLoading}
                         >
                             <View style={styles.selectButtonContent}>
-                                <View style={[styles.accountTypeIcon, { backgroundColor: getAccountTypeColor(accountType) }]}>
-                                    <Ionicons name={getAccountTypeIcon(accountType)} size={16} color="#FFFFFF" />
+                                <View style={[styles.accountTypeIcon, { backgroundColor: '#F3F4F6' }]}>
+                                    <Ionicons name={getAccountTypeIcon(accountType)} size={16} color="#333" />
                                 </View>
                                 <Text style={styles.selectButtonText}>
                                     {getLabelFromValue(ACCOUNT_TYPES, accountType)}
@@ -274,37 +300,27 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
 
                         {accountType === 'balance' && (
                             <>
-                                <Text style={styles.label}>Initial Balance *</Text>
-                                <TextInput
-                                    ref={initialBalanceInputRef}
-                                    style={[styles.input, initialBalanceError ? styles.inputError : null]}
-                                    placeholder="Enter initial balance"
+                                <LabeledInput
+                                    label="Initial Balance *"
+                                    error={initialBalanceError}
                                     value={initialBalance}
                                     onChangeText={handleInitialBalanceChange}
+                                    placeholder="Enter initial balance"
                                     keyboardType="numeric"
-                                    placeholderTextColor={COLORS.gray}
-                                    returnKeyType="done"
-                                    onSubmitEditing={handleSaveAccount}
                                 />
-                                {initialBalanceError ? <Text style={styles.errorText}>{initialBalanceError}</Text> : null}
                             </>
                         )}
 
                         {accountType === 'savings_goal' && (
                             <>
-                                <Text style={styles.label}>Saving Goal *</Text>
-                                <TextInput
-                                    ref={savingGoalInputRef}
-                                    style={[styles.input, savingGoalError ? styles.inputError : null]}
-                                    placeholder="Enter saving goal amount"
+                                <LabeledInput
+                                    label="Saving Goal *"
+                                    error={savingGoalError}
                                     value={savingGoal}
                                     onChangeText={handleSavingGoalChange}
+                                    placeholder="Enter saving goal amount"
                                     keyboardType="numeric"
-                                    placeholderTextColor={COLORS.gray}
-                                    returnKeyType="done"
-                                    onSubmitEditing={handleSaveAccount}
                                 />
-                                {savingGoalError ? <Text style={styles.errorText}>{savingGoalError}</Text> : null}
                             </>
                         )}
 
@@ -320,15 +336,16 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                             <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.modalButton, styles.saveButton, isLoading && styles.buttonDisabled]}
+                            style={[
+                                styles.modalButton,
+                                styles.saveButton,
+                                (!isFormValid || isLoading) && styles.buttonDisabled
+                            ]}
                             onPress={handleSaveAccount}
-                            disabled={isLoading}
+                            disabled={!isFormValid || isLoading}
                         >
-                            {isLoading ? (
-                                <ActivityIndicator size="small" color={COLORS.white} />
-                            ) : (
-                                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save Account</Text>
-                            )}
+                            {isLoading ? <ActivityIndicator size="small" color={COLORS.white} /> :
+                                <Text style={[styles.modalButtonText, styles.saveButtonText]}>Save Account</Text>}
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -517,7 +534,20 @@ const styles = StyleSheet.create({
         color: COLORS.white,
     },
     buttonDisabled: {
-        opacity: 0.6,
+        opacity: 0.5,
+    },
+    loadingOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    errorRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+        marginBottom: 4,
     },
 });
 

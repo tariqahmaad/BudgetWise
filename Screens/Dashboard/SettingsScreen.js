@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -21,8 +21,6 @@ import {
   auth,
   firestore,
   collection,
-  query,
-  where,
   getDocs,
   deleteDoc,
   doc,
@@ -30,18 +28,13 @@ import {
 import { COLORS } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
+import SettingListItem from "../../Components/Common/SettingListItem";
 
-
-// =============================================
-// Main Screen Component
-// =============================================
 const SettingsScreen = () => {
-  // Navigation
   const navigation = useNavigation();
 
-  // State Management
-  const [isSigningOut, setIsSigningOut] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
   const [isAddAccountModalVisible, setIsAddAccountModalVisible] = useState(false);
   const [isAddCategoryModalVisible, setIsAddCategoryModalVisible] = useState(false);
@@ -51,7 +44,6 @@ const SettingsScreen = () => {
 
   const user = auth.currentUser;
 
-  // Effects
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -62,92 +54,54 @@ const SettingsScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchAccountsAndCategories();
-    }
+    if (user) fetchAccountsAndCategories();
   }, [user]);
 
-  const fetchAccountsAndCategories = async () => {
+  const fetchAccountsAndCategories = useCallback(async () => {
     try {
       const accountsRef = collection(firestore, "users", user.uid, "accounts");
       const categoriesRef = collection(firestore, "users", user.uid, "categories");
 
-      const accountsSnapshot = await getDocs(accountsRef);
-      const categoriesSnapshot = await getDocs(categoriesRef);
+      const [accountsSnapshot, categoriesSnapshot] = await Promise.all([
+        getDocs(accountsRef),
+        getDocs(categoriesRef),
+      ]);
 
-      const accountsList = accountsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      const categoriesList = categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      setAccounts(accountsList);
-      setCategories(categoriesList);
+      setAccounts(accountsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setCategories(categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (error) {
       console.error("Error fetching data:", error);
     }
-  };
+  }, [user]);
 
-  const handleDeleteAccount = async (accountId) => {
+  const confirmDelete = useCallback((type, id) => {
     Alert.alert(
-      "Delete Account",
-      "Are you sure you want to delete this account? This action cannot be undone.",
+      `Delete ${type}`,
+      `Are you sure you want to delete this ${type.toLowerCase()}? This action cannot be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await deleteDoc(doc(firestore, "users", user.uid, "accounts", accountId));
-              await fetchAccountsAndCategories();
-              Alert.alert("Success", "Account deleted successfully");
-            } catch (error) {
-              console.error("Error deleting account:", error);
-              Alert.alert("Error", "Failed to delete account");
-            } finally {
-              setIsLoading(false);
-            }
-          },
+          onPress: () => handleDelete(type, id),
         },
       ]
     );
-  };
+  }, []);
 
-  const handleDeleteCategory = async (categoryId) => {
-    Alert.alert(
-      "Delete Category",
-      "Are you sure you want to delete this category? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setIsLoading(true);
-              await deleteDoc(doc(firestore, "users", user.uid, "categories", categoryId));
-              await fetchAccountsAndCategories();
-              Alert.alert("Success", "Category deleted successfully");
-            } catch (error) {
-              console.error("Error deleting category:", error);
-              Alert.alert("Error", "Failed to delete category");
-            } finally {
-              setIsLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const handleDelete = useCallback(async (type, id) => {
+    try {
+      setIsLoading(true);
+      await deleteDoc(doc(firestore, "users", user.uid, type === 'Account' ? "accounts" : "categories", id));
+      await fetchAccountsAndCategories();
+    } catch (error) {
+      console.error(`Error deleting ${type.toLowerCase()}:`, error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, fetchAccountsAndCategories]);
 
-  // Event Handlers
-  const handleSignOut = () => {
+  const handleSignOut = useCallback(() => {
     Alert.alert(
       "Confirm Sign Out",
       "Are you sure you want to sign out?",
@@ -160,7 +114,6 @@ const SettingsScreen = () => {
             setIsSigningOut(true);
             try {
               await signOut(auth);
-              console.log("User signed out successfully");
             } catch (error) {
               console.error("Sign out error:", error);
               Alert.alert("Sign Out Error", error.message);
@@ -171,48 +124,19 @@ const SettingsScreen = () => {
         },
       ]
     );
-  };
+  }, []);
 
-  const handleAddAccount = () => {
-    setIsAddAccountModalVisible(true);
-  };
+  const accountIcon = useCallback((type) => {
+    switch (type) {
+      case 'balance': return 'wallet-outline';
+      case 'income_tracker': return 'trending-up-outline';
+      case 'savings_goal': return 'save-outline';
+      default: return 'wallet-outline';
+    }
+  }, []);
 
-  const handleAddCategory = () => {
-    setIsAddCategoryModalVisible(true);
-  };
-
-
-  // Settings Item Renderer
-  const renderSettingItem = ({ title, value, onPress, isSwitch = false, switchValue, onSwitchChange, icon }) => (
-    <TouchableOpacity
-      style={styles.settingItem}
-      onPress={onPress}
-      disabled={isSwitch || !onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.settingItemLeft}>
-        {icon && (
-          <View style={[styles.iconContainer, { backgroundColor: icon.backgroundColor }]}>
-            <Ionicons name={icon.name} size={18} color={icon.color} />
-          </View>
-        )}
-        <Text style={[styles.settingItemTitle, icon && { marginLeft: 12 }]}>{title}</Text>
-      </View>
-      <View style={styles.settingItemRight}>
-        {value && <Text style={styles.settingItemValue}>{value}</Text>}
-        {isSwitch ? (
-          <Switch
-            trackColor={{ false: '#E9E9EA', true: '#007AFF' }}
-            thumbColor={'#FFFFFF'}
-            ios_backgroundColor="#E9E9EA"
-            onValueChange={onSwitchChange}
-            value={switchValue}
-          />
-        ) : (
-          onPress && <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-        )}
-      </View>
-    </TouchableOpacity>
+  const SectionHeader = ({ title }) => (
+    <Text style={styles.sectionHeader}>{title}</Text>
   );
 
   return (
@@ -220,138 +144,135 @@ const SettingsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="chevron-back" size={24} color="#000000" />
+          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Settings</Text>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={handleSignOut}
-            disabled={isSigningOut}
-          >
+          <TouchableOpacity style={styles.headerButton} onPress={handleSignOut} disabled={isSigningOut}>
             {isSigningOut ? (
               <ActivityIndicator size="small" color={COLORS.danger} />
             ) : (
-              <Ionicons name="log-out-outline" size={26} color={COLORS.danger} />
+              <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
             )}
           </TouchableOpacity>
         </View>
 
-        {/* Settings List */}
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
           <ScrollView
             style={styles.content}
             contentContainerStyle={styles.scrollContentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Testing Section */}
-            <Text style={styles.sectionHeader}>Testing</Text>
+            {/* Testing */}
+            <SectionHeader title="Testing" />
             <View style={styles.settingsGroup}>
-              {renderSettingItem({
-                title: "Add Account",
-                onPress: handleAddAccount,
-                icon: {
-                  name: "wallet-outline",
-                  backgroundColor: "#E8F0FE",
-                  color: "#4285F4"
-                }
-              })}
-              {renderSettingItem({
-                title: "Add Category",
-                onPress: handleAddCategory,
-                icon: {
-                  name: "grid-outline",
-                  backgroundColor: "#FCE8E7",
-                  color: "#EA4335"
-                }
-              })}
+              <SettingListItem
+                icon="wallet-outline"
+                iconColor="#4285F4"
+                title="Add Account"
+                onPress={() => setIsAddAccountModalVisible(true)}
+              />
+              <SettingListItem
+                icon="grid-outline"
+                iconColor="#EA4335"
+                title="Add Category"
+                onPress={() => setIsAddCategoryModalVisible(true)}
+              />
             </View>
 
-            {/* Accounts Section */}
-            <Text style={styles.sectionHeader}>Accounts</Text>
+            {/* Accounts */}
+            <SectionHeader title="Accounts" />
             <View style={styles.settingsGroup}>
-              {accounts.map((account) => (
-                <TouchableOpacity
-                  key={account.id}
-                  style={styles.settingItem}
-                  onPress={() => handleDeleteAccount(account.id)}
-                >
-                  <View style={styles.settingItemLeft}>
-                    <View style={[styles.iconContainer, { backgroundColor: account.backgroundColor || "#E8F0FE" }]}>
-                      <Ionicons name={getAccountTypeIcon(account.type)} size={18} color="#FFFFFF" />
-                    </View>
-                    <Text style={[styles.settingItemTitle, { marginLeft: 12 }]}>{account.title}</Text>
-                  </View>
-                  <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                </TouchableOpacity>
+              {accounts.length === 0 ? (
+                <Text style={styles.emptyText}>No accounts added yet.</Text>
+              ) : accounts.map((acc) => (
+                <SettingListItem
+                  key={acc.id}
+                  icon={accountIcon(acc.type)}
+                  iconColor="#FDB347"
+                  title={acc.title}
+                  onPress={() => confirmDelete('Account', acc.id)}
+                  rightIcon="trash-outline"
+                />
               ))}
             </View>
 
-            {/* Categories Section */}
-            <Text style={styles.sectionHeader}>Categories</Text>
+            {/* Categories */}
+            <SectionHeader title="Categories" />
             <View style={styles.settingsGroup}>
-              {categories.map((category) => (
-                <TouchableOpacity
-                  key={category.id}
-                  style={styles.settingItem}
-                  onPress={() => handleDeleteCategory(category.id)}
-                >
-                  <View style={styles.settingItemLeft}>
-                    <View style={[styles.iconContainer, { backgroundColor: category.backgroundColor || "#FCE8E7" }]}>
-                      <Ionicons name={category.iconName} size={18} color="#FFFFFF" />
-                    </View>
-                    <Text style={[styles.settingItemTitle, { marginLeft: 12 }]}>{category.name}</Text>
-                  </View>
-                  <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-                </TouchableOpacity>
+              {categories.length === 0 ? (
+                <Text style={styles.emptyText}>No categories added yet.</Text>
+              ) : categories.map((cat) => (
+                <SettingListItem
+                  key={cat.id}
+                  icon={cat.iconName}
+                  iconColor="#FDB347"
+                  title={cat.name}
+                  onPress={() => confirmDelete('Category', cat.id)}
+                  rightIcon="trash-outline"
+                />
               ))}
             </View>
 
-            {/* General Section */}
-            <Text style={styles.sectionHeader}>General</Text>
+            {/* General */}
+            <SectionHeader title="General" />
             <View style={styles.settingsGroup}>
-              {renderSettingItem({
-                title: "Language",
-                value: "English",
-                onPress: () => Alert.alert("Language", "Navigate to Language Selection"),
-              })}
-              {renderSettingItem({
-                title: "My Profile",
-                onPress: () => navigation.navigate('Profile'),
-              })}
-              {renderSettingItem({
-                title: "Contact Us",
-                onPress: () => Alert.alert("Contact Us", "Show Contact Info"),
-              })}
+              <SettingListItem
+                icon="language-outline"
+                title="Language"
+                onPress={() => Alert.alert("Language", "Navigate to Language Selection")}
+                rightComponent={<Text style={styles.settingValue}>English</Text>}
+              />
+              <SettingListItem
+                icon="person-outline"
+                title="My Profile"
+                onPress={() => navigation.navigate('Profile')}
+              />
+              <SettingListItem
+                icon="mail-outline"
+                title="Contact Us"
+                onPress={() => Alert.alert("Contact Us", "Show Contact Info")}
+              />
             </View>
 
-            {/* Security Section */}
-            <Text style={styles.sectionHeader}>Security</Text>
+            {/* Security */}
+            <SectionHeader title="Security" />
             <View style={styles.settingsGroup}>
-              {renderSettingItem({
-                title: "Change Password",
-                onPress: () => Alert.alert("Password", "Navigate to Change Password"),
-              })}
-              {renderSettingItem({
-                title: "Privacy Policy",
-                onPress: () => Alert.alert("Privacy", "Navigate to Privacy Policy"),
-              })}
+              <SettingListItem
+                icon="lock-closed-outline"
+                title="Change Password"
+                onPress={() => Alert.alert("Password", "Navigate to Change Password")}
+              />
+              <SettingListItem
+                icon="document-text-outline"
+                title="Privacy Policy"
+                onPress={() => Alert.alert("Privacy", "Navigate to Privacy Policy")}
+              />
               <Text style={styles.settingDescription}>Choose what data you share with us</Text>
-              {renderSettingItem({
-                title: "Biometric",
-                isSwitch: true,
-                switchValue: isBiometricEnabled,
-                onSwitchChange: setIsBiometricEnabled,
-              })}
+              <SettingListItem
+                icon="finger-print-outline"
+                title="Biometric"
+                rightComponent={
+                  <Switch
+                    trackColor={{ false: '#E9E9EA', true: '#007AFF' }}
+                    thumbColor="#FFFFFF"
+                    ios_backgroundColor="#E9E9EA"
+                    value={isBiometricEnabled}
+                    onValueChange={setIsBiometricEnabled}
+                  />
+                }
+              />
             </View>
-
           </ScrollView>
         </Animated.View>
 
-        {/* Modals */}
+        {/* Loading overlay during delete */}
+        {isLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+
         <AddAccountModal
           isVisible={isAddAccountModalVisible}
           onClose={() => setIsAddAccountModalVisible(false)}
@@ -366,34 +287,14 @@ const SettingsScreen = () => {
           user={user}
         />
 
-        {/* Navigation Bar */}
         <NavigationBar />
       </View>
     </ScreenWrapper>
   );
 };
 
-const getAccountTypeIcon = (type) => {
-  switch (type) {
-    case 'balance':
-      return 'wallet-outline';
-    case 'income_tracker':
-      return 'trending-up-outline';
-    case 'savings_goal':
-      return 'save-outline';
-    default:
-      return 'wallet-outline';
-  }
-};
-
-// =============================================
-// Styles
-// =============================================
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
+  container: { flex: 1, backgroundColor: COLORS.white },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,20 +314,14 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#000000',
+    fontFamily: "Poppins-SemiBold",
+    color: '#000',
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  scrollContentContainer: {
-    paddingTop: 20,
-    paddingBottom: 80,
-  },
+  content: { flex: 1, paddingHorizontal: 16 },
+  scrollContentContainer: { paddingTop: 20, paddingBottom: 80 },
   sectionHeader: {
     fontSize: 16,
-    fontWeight: '400',
+    fontFamily: "Poppins-Medium",
     color: '#8E8E93',
     marginTop: 24,
     marginBottom: 8,
@@ -435,55 +330,40 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#E5E5EA',
-  },
-  settingItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  settingItemTitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#000000',
-  },
-  settingItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingItemValue: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#8E8E93',
-    marginRight: 8,
+    marginBottom: 16,
+    paddingVertical: 4,
   },
   settingDescription: {
     fontSize: 13,
+    fontFamily: "Poppins-Regular",
     color: '#8E8E93',
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
+  },
+  settingValue: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    color: '#8E8E93',
+    marginRight: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: "Poppins-Regular",
+    color: '#8E8E93',
+    padding: 16,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });
 

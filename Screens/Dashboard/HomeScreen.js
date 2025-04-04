@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
 import MainCard from "../../Components/CategoryCards/MainCard";
@@ -50,7 +50,6 @@ const transactionData = [
 ];
 
 const HomeScreen = ({ navigation }) => {
-    // State management
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
     const [mainCardsData, setMainCardsData] = useState([]);
@@ -60,11 +59,12 @@ const HomeScreen = ({ navigation }) => {
     const [userData, setUserData] = useState({
         name: '',
         surname: '',
-        avatar: Images.profilePic  // Add avatar to initial state
+        avatar: Images.profilePic
     });
+
     const { width } = Dimensions.get('window');
 
-    // Fetch accounts data from Firestore
+    // Fetch accounts
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -73,8 +73,8 @@ const HomeScreen = ({ navigation }) => {
         }
         setAccountsLoading(true);
         const accountsRef = collection(firestore, "users", user.uid, "accounts");
-        const unsubscribe = onSnapshot(accountsRef, (querySnapshot) => {
-            const accounts = querySnapshot.docs.map(doc => {
+        const unsubscribe = onSnapshot(accountsRef, (snapshot) => {
+            const accounts = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -99,11 +99,10 @@ const HomeScreen = ({ navigation }) => {
             console.error("Error fetching accounts: ", error);
             setAccountsLoading(false);
         });
-
-        return () => unsubscribe();
+        return unsubscribe;
     }, []);
 
-    // Fetch categories data from Firestore
+    // Fetch categories
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -112,8 +111,8 @@ const HomeScreen = ({ navigation }) => {
         }
         setCategoriesLoading(true);
         const categoriesRef = collection(firestore, "users", user.uid, "categories");
-        const unsubscribe = onSnapshot(categoriesRef, (querySnapshot) => {
-            const categories = querySnapshot.docs.map(doc => {
+        const unsubscribe = onSnapshot(categoriesRef, (snapshot) => {
+            const categories = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -130,20 +129,16 @@ const HomeScreen = ({ navigation }) => {
             console.error("Error fetching categories: ", error);
             setCategoriesLoading(false);
         });
-
-        return () => unsubscribe();
+        return unsubscribe;
     }, []);
 
-    // Fetch user data from Firestore
+    // Fetch user data
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) return;
-
         const fetchUserData = async () => {
             try {
-                const userDocRef = doc(firestore, "users", user.uid);
-                const userDoc = await getDoc(userDocRef);
-
+                const userDoc = await getDoc(doc(firestore, "users", user.uid));
                 if (userDoc.exists()) {
                     const data = userDoc.data();
                     setUserData({
@@ -156,78 +151,63 @@ const HomeScreen = ({ navigation }) => {
                 console.error("Error fetching user data:", error);
             }
         };
-
         fetchUserData();
     }, []);
 
-    // Sample data
-    const friends = [
+    // Memoized handlers
+    const handleMainScroll = useCallback((event) => {
+        if (accountsLoading || mainCardsData.length === 0) return;
+        const index = Math.round(event.nativeEvent.contentOffset.x / CARD_DIMENSIONS.mainCard.totalWidth);
+        setMainCardIndex(Math.min(Math.max(index, 0), mainCardsData.length - 1));
+    }, [accountsLoading, mainCardsData.length]);
+
+    const handleSubScroll = useCallback((event) => {
+        if (categoriesLoading || categoriesData.length === 0) return;
+        const index = Math.round(event.nativeEvent.contentOffset.x / CARD_DIMENSIONS.subCard.totalWidth);
+        setSubCardIndex(Math.min(Math.max(index, 0), categoriesData.length - 1));
+    }, [categoriesLoading, categoriesData.length]);
+
+    const handleFriendPress = useCallback((friend) => {
+        console.log("Navigation to debt tracking with", friend.name);
+    }, []);
+
+    const friends = useMemo(() => [
         { id: 1, name: 'Name' },
         { id: 2, name: 'Name' },
         { id: 3, name: 'Name' },
         { id: 4, name: 'Name' },
         { id: 5, name: 'Name' },
-    ];
+    ], []);
 
-    // Event handlers
-    const handleFriendPress = (friend) => {
-        console.log("Navigation to debt tracking with", friend.name);
-        // Navigation logic would go here
-    };
+    const renderPaginationDots = useCallback((currentIndex, total, style) => (
+        <View style={[styles.paginationDots, style]}>
+            {Array.from({ length: total }).map((_, index) => (
+                <View
+                    key={index}
+                    style={[
+                        styles.dot,
+                        index === currentIndex ? styles.activeDot : styles.inactiveDot
+                    ]}
+                />
+            ))}
+        </View>
+    ), []);
 
-    const handleMainScroll = (event) => {
-        if (accountsLoading || mainCardsData.length === 0) return;
-        const contentOffset = event.nativeEvent.contentOffset.x;
-        const index = Math.round(contentOffset / CARD_DIMENSIONS.mainCard.totalWidth);
-        setMainCardIndex(Math.min(Math.max(index, 0), mainCardsData.length - 1));
-    };
-
-    const handleSubScroll = (event) => {
-        if (categoriesLoading || categoriesData.length === 0) return;
-        const contentOffset = event.nativeEvent.contentOffset.x;
-        const index = Math.round(contentOffset / CARD_DIMENSIONS.subCard.totalWidth);
-        setSubCardIndex(Math.min(Math.max(index, 0), categoriesData.length - 1));
-    };
-
-    // UI Components
-    const renderPaginationDots = (currentIndex, total, style) => {
-        return (
-            <View style={[styles.paginationDots, style]}>
-                {Array(total).fill(0).map((_, index) => (
-                    <View
-                        key={index}
-                        style={[
-                            styles.dot,
-                            index === currentIndex ? styles.activeDot : styles.inactiveDot
-                        ]}
-                    />
-                ))}
-            </View>
-        );
-    };
-
-    // Render Main Cards using FlatList
-    const renderMainCardItem = ({ item, index }) => (
-        <MainCard
-            title={item.title}
-            amount={item.amount}
-            amountColor={item.amountColor}
-            description={item.description}
-            backgroundColor={item.backgroundColor}
-            Frame={item.Frame}
-            extraField={item.extraField}
-        />
+    const SectionHeader = ({ title, onPress }) => (
+        <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+            {onPress && (
+                <TouchableOpacity onPress={onPress}>
+                    <Text style={styles.seeAllText}>See All</Text>
+                </TouchableOpacity>
+            )}
+        </View>
     );
 
     const renderMainCards = () => {
         if (accountsLoading) {
-            return (
-                <View style={[styles.cardContainerHeight, styles.loadingContainer]}>
-                    <ActivityIndicator size="large" color={COLORS.primary} />
-                </View>
-            );
+            return <ActivityIndicator size="large" color={COLORS.primary} style={styles.cardContainerHeight} />;
         }
-
         if (mainCardsData.length === 0) {
             return (
                 <View style={[styles.cardContainerHeight, styles.emptyState]}>
@@ -237,12 +217,13 @@ const HomeScreen = ({ navigation }) => {
                 </View>
             );
         }
-
         return (
-            <View>
+            <>
                 <FlatList
                     data={mainCardsData}
-                    renderItem={renderMainCardItem}
+                    renderItem={({ item }) => (
+                        <MainCard {...item} />
+                    )}
                     keyExtractor={item => item.id}
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -253,89 +234,48 @@ const HomeScreen = ({ navigation }) => {
                     decelerationRate="fast"
                 />
                 {mainCardsData.length > 1 && renderPaginationDots(mainCardIndex, mainCardsData.length, { marginTop: 10 })}
-            </View>
+            </>
         );
     };
 
-    // Render Friends using FlatList
-    const renderFriendItem = ({ item }) => (
-        <TouchableOpacity
-            key={item.id}
-            style={styles.friendCircle}
-            onPress={() => handleFriendPress(item)}
-        >
-            <View style={styles.friendAvatarContainer}>
-                <Ionicons
-                    name="person-circle-outline"
-                    size={50}
-                    color={COLORS.text}
-                />
-            </View>
-            <Text style={styles.friendName}>{item.name}</Text>
-        </TouchableOpacity>
-    );
-
-    const renderAddFriendButton = () => (
-        <TouchableOpacity style={styles.addFriendButton}>
-            <View style={styles.addFriendCircle}>
-                <Ionicons
-                    name="add"
-                    size={32}
-                    color={COLORS.text}
-                />
-            </View>
-            <Text style={styles.friendName}>Add new</Text>
-        </TouchableOpacity>
-    );
-
     const renderFriendsSection = () => (
         <>
-            <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>View your friends</Text>
-                <TouchableOpacity>
-                    <Text style={styles.seeAllText}>See All</Text>
-                </TouchableOpacity>
-            </View>
-
+            <SectionHeader title="View your friends" onPress={() => console.log("See all friends")} />
             <FlatList
                 data={friends}
-                renderItem={renderFriendItem}
+                renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.friendCircle} onPress={() => handleFriendPress(item)}>
+                        <View style={styles.friendAvatarContainer}>
+                            <Ionicons name="person-circle-outline" size={50} color={COLORS.text} />
+                        </View>
+                        <Text style={styles.friendName}>{item.name}</Text>
+                    </TouchableOpacity>
+                )}
                 keyExtractor={item => item.id.toString()}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.friendsFlatListContainer}
-                ListFooterComponent={renderAddFriendButton}
+                ListFooterComponent={() => (
+                    <TouchableOpacity style={styles.addFriendButton}>
+                        <View style={styles.addFriendCircle}>
+                            <Ionicons name="add" size={32} color={COLORS.text} />
+                        </View>
+                        <Text style={styles.friendName}>Add new</Text>
+                    </TouchableOpacity>
+                )}
             />
         </>
     );
 
-    // Render Sub Cards (Spending Categories) using FlatList
-    const renderSubCardItem = ({ item, index }) => (
-        <SubCard
-            Category={item.Category}
-            amount={item.amount}
-            description={item.description}
-            backgroundColor={item.backgroundColor}
-            iconName={item.iconName}
-        />
-    );
-
     const renderSubCards = () => {
         if (categoriesLoading) {
-            return (
-                <View style={[styles.cardContainerHeight, styles.loadingContainer]}>
-                    <ActivityIndicator size="large" color={COLORS.primary} />
-                </View>
-            );
+            return <ActivityIndicator size="large" color={COLORS.primary} style={styles.cardContainerHeight} />;
         }
-
         if (categoriesData.length === 0) {
             return (
                 <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Spending Categories</Text>
-                    </View>
-                    <View style={[styles.cardContainerHeight, styles.emptyState, { paddingHorizontal: 20 }]}>
+                    <SectionHeader title="Spending Categories" />
+                    <View style={[styles.cardContainerHeight, styles.emptyState]}>
                         <Ionicons name="layers-outline" size={50} color={COLORS.gray} />
                         <Text style={styles.emptyText}>No Categories Yet</Text>
                         <Text style={styles.emptySubText}>Add spending categories in Settings to track your budget.</Text>
@@ -343,19 +283,14 @@ const HomeScreen = ({ navigation }) => {
                 </View>
             );
         }
-
         return (
-            <View>
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionTitle}>Spending Categories</Text>
-                    <TouchableOpacity onPress={() => console.log("Navigate to See All Categories")}>
-                        <Text style={styles.seeAllText}>See All</Text>
-                    </TouchableOpacity>
-                </View>
-
+            <>
+                <SectionHeader title="Spending Categories" onPress={() => console.log("See all categories")} />
                 <FlatList
                     data={categoriesData}
-                    renderItem={renderSubCardItem}
+                    renderItem={({ item }) => (
+                        <SubCard {...item} />
+                    )}
                     keyExtractor={item => item.id}
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -366,51 +301,40 @@ const HomeScreen = ({ navigation }) => {
                     decelerationRate="fast"
                 />
                 {categoriesData.length > 1 && renderPaginationDots(subCardIndex, categoriesData.length, { marginTop: 10 })}
-            </View>
+            </>
         );
     };
 
-    // Render a single transaction item
-    const renderTransactionItem = ({ item }) => (
-        <View style={styles.transaction}>
-            <View style={styles.transactionLeft}>
-                <View style={[styles.transactionIcon, { backgroundColor: item.iconBg }]}>
-                    <Ionicons name={item.icon} size={24} color={item.iconColor || 'white'} />
-                </View>
-                <View>
-                    <Text style={styles.transactionName}>{item.name}</Text>
-                    <Text style={styles.transactionCategory}>{item.category}</Text>
-                </View>
-            </View>
-            <Text style={[styles.transactionAmount, { color: item.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{item.amount}</Text>
-        </View>
-    );
-
-    // Render a group of transactions (e.g., "Today", "Yesterday")
-    const renderTransactionGroup = ({ item }) => (
-        <View style={styles.transactionGroup}>
-            <Text style={styles.transactionDate}>{item.title}</Text>
-            <FlatList
-                data={item.data}
-                renderItem={renderTransactionItem}
-                keyExtractor={transaction => transaction.id}
-                scrollEnabled={false}
-                ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            />
-        </View>
-    );
-
     const renderTransactionHistory = () => (
         <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Transaction History</Text>
-                <TouchableOpacity>
-                    <Text style={styles.seeAllButton}>See All</Text>
-                </TouchableOpacity>
-            </View>
+            <SectionHeader title="Transaction History" onPress={() => console.log("See all transactions")} />
             <FlatList
                 data={transactionData}
-                renderItem={renderTransactionGroup}
+                renderItem={({ item }) => (
+                    <View style={styles.transactionGroup}>
+                        <Text style={styles.transactionDate}>{item.title}</Text>
+                        <FlatList
+                            data={item.data}
+                            renderItem={({ item: txn }) => (
+                                <View style={styles.transaction}>
+                                    <View style={styles.transactionLeft}>
+                                        <View style={[styles.transactionIcon, { backgroundColor: txn.iconBg }]}>
+                                            <Ionicons name={txn.icon} size={24} color={txn.iconColor || 'white'} />
+                                        </View>
+                                        <View>
+                                            <Text style={styles.transactionName}>{txn.name}</Text>
+                                            <Text style={styles.transactionCategory}>{txn.category}</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={[styles.transactionAmount, { color: txn.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{txn.amount}</Text>
+                                </View>
+                            )}
+                            keyExtractor={txn => txn.id}
+                            scrollEnabled={false}
+                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                        />
+                    </View>
+                )}
                 keyExtractor={group => group.title}
                 scrollEnabled={false}
             />
@@ -420,44 +344,29 @@ const HomeScreen = ({ navigation }) => {
     return (
         <ScreenWrapper backgroundColor={COLORS.appBackground}>
             <View style={styles.container}>
-                {/* User Profile Section */}
+                {/* User Profile */}
                 <View style={styles.profileSection}>
                     <View style={styles.profileContainer}>
                         <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
                             {userData.avatar ? (
-                                <Image
-                                    source={userData.avatar}
-                                    style={[styles.profileImage, { borderRadius: 20 }]}
-                                />
+                                <Image source={userData.avatar} style={[styles.profileImage, { borderRadius: 20 }]} />
                             ) : (
-                                <Ionicons
-                                    name="person-circle-outline"
-                                    size={40}
-                                    color={COLORS.text}
-                                    style={styles.profileImage}
-                                />
+                                <Ionicons name="person-circle-outline" size={40} color={COLORS.text} style={styles.profileImage} />
                             )}
                         </TouchableOpacity>
                         <View style={styles.welcomeTextContainer}>
                             <Text style={styles.welcomeText}>Welcome back,</Text>
                             <Text style={styles.userName}>
-                                {userData.name && userData.surname
-                                    ? `${userData.name} ${userData.surname}`
-                                    : 'User'}
+                                {userData.name && userData.surname ? `${userData.name} ${userData.surname}` : 'User'}
                             </Text>
                         </View>
                     </View>
                     <TouchableOpacity style={styles.notificationContainer}>
-                        <Ionicons
-                            name="notifications-outline"
-                            size={34}
-                            color={COLORS.text}
-                        />
+                        <Ionicons name="notifications-outline" size={34} color={COLORS.text} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Main content with ScrollViews */}
-                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
+                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled>
                     {renderMainCards()}
                     {renderFriendsSection()}
                     {renderSubCards()}
@@ -465,7 +374,6 @@ const HomeScreen = ({ navigation }) => {
                     <View style={styles.bottomPadding} />
                 </ScrollView>
 
-                {/* Navigation Bar */}
                 <NavigationBar />
             </View>
         </ScreenWrapper>

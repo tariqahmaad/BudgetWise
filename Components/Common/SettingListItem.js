@@ -21,14 +21,14 @@ const SettingListItem = ({
             activeOpacity={0.7}
         >
             {/* Left icon */}
-            <View style={[styles.iconContainer, { backgroundColor: iconColor === COLORS.danger ? '#FEE2E2' : '#F3F4F6' }]}>
+            <View style={styles.iconContainer}>
                 <Ionicons name={icon} size={22} color={iconColor} />
             </View>
 
             {/* Title */}
             <Text style={[styles.title, textStyle]}>{title}</Text>
 
-            {/* Right side - either badge, custom component, or chevron */}
+            {/* Right side */}
             <View style={styles.rightContainer}>
                 {badgeCount > 0 && (
                     <View style={styles.badge}>
@@ -48,16 +48,17 @@ const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 16,
+        paddingVertical: 12,
         paddingHorizontal: 16,
-        backgroundColor: COLORS.white,
-        borderRadius: 12,
-        marginBottom: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: '#E5E5EA',
+        backgroundColor: 'transparent',
     },
     iconContainer: {
         width: 36,
         height: 36,
         borderRadius: 8,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
@@ -65,8 +66,8 @@ const styles = StyleSheet.create({
     title: {
         flex: 1,
         fontSize: 16,
+        fontFamily: 'Poppins-Regular',
         color: COLORS.text,
-        fontFamily: 'Poppins-Medium',
     },
     rightContainer: {
         flexDirection: 'row',
@@ -74,19 +75,16 @@ const styles = StyleSheet.create({
     },
     badge: {
         backgroundColor: COLORS.danger,
-        borderRadius: 999,
-        minWidth: 20,
-        height: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
+        borderRadius: 10,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
         marginRight: 8,
     },
     badgeText: {
-        color: '#FFFFFF',
+        color: '#fff',
         fontSize: 12,
         fontFamily: 'Poppins-Medium',
-        paddingHorizontal: 6,
-    }
+    },
 });
 
 export default SettingListItem; 
