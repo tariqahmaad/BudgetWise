@@ -100,7 +100,7 @@ const DebtTracking = ({ navigation }) => {
             {friends.map((friend) => (
               <Pressable
                 key={friend.id}
-                onPress={() => navigation.navigate("addDept", { friend })}
+                onPress={() => navigation.navigate("addDebt", { friend })}
                 style={({ pressed }) => [
                   { transform: [{ scale: pressed ? 0.97 : 1 }] },
                   { transition: "0.2s ease" },
