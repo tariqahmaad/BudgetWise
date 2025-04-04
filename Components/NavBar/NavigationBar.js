@@ -1,4 +1,4 @@
-import { StyleSheet, View, TouchableOpacity } from 'react-native'
+import { StyleSheet, View, TouchableOpacity} from 'react-native'
 import React, { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useNavigationState } from '@react-navigation/native'
@@ -31,11 +31,11 @@ const NavigationBar = () => {
     const handleMenuOptionPress = (option) => {
         switch (option) {
             case 'Add Transactions':
-                navigation.navigate('AddTransaction');
+                navigation.navigate('addTransaction');
                 setIsMenuVisible(false);
                 break;
             case 'Debt Tracking':
-                navigation.navigate('DebtTracking');
+                navigation.navigate('debtTracking');
                 setIsMenuVisible(false);
                 break;
             default:

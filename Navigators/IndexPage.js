@@ -13,6 +13,9 @@ import { COLORS, HEADER_STYLE } from "../constants/theme";
 import SignUpPage from "../Screens/Authenication/SignUpPage";
 import LoginPage from "../Screens/Authenication/LoginPage";
 import { AuthProvider, AuthContext } from "../context/AuthProvider";
+import AddDept from "../Screens/Dashboard/SubMenu/AddDept";
+import AddTransactions from "../Screens/Dashboard/SubMenu/AddTransactions";
+import DebtTrcaking from "../Screens/Dashboard/SubMenu/DebtTracking";
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -51,6 +54,9 @@ const DashboardStack = () => (
     <Stack.Screen name="AI" component={AIScreen} />
     <Stack.Screen name="Settings" component={SettingsScreen} />
     <Stack.Screen name="Profile" component={ProfileScreen} />
+    <Stack.Screen name="addDept" component={AddDept} />
+    <Stack.Screen name="addTransaction" component={AddTransactions} />
+    <Stack.Screen name="debtTracking" component={DebtTrcaking} />
   </Stack.Navigator>
 );
 
