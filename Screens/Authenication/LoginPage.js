@@ -18,7 +18,6 @@ import { useNavigation } from "@react-navigation/native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/firebaseConfig";
 
-
 const LoginPage = () => {
   const [showPasswords, setShowPasswords] = useState(false);
   const [formData, setFormData] = useState({
@@ -43,7 +42,7 @@ const LoginPage = () => {
     console.log(`Email: ${formData.email}`);
     console.log(`Password: ${formData.password}`);
 
-    try{
+    try {
       const userCredential = await signInWithEmailAndPassword(
         auth,
         formData.email,
@@ -52,8 +51,7 @@ const LoginPage = () => {
 
       const user = userCredential.user;
       console.log("User signed in:", user.uid);
-      
-    }catch(error){
+    } catch (error) {
       console.error("Error signing in:", error.message);
     }
   };
@@ -128,7 +126,12 @@ const LoginPage = () => {
               onPasswordToggle={togglePasswordVisibility}
             />
 
-            <Text style={styles.forgotPassword}>Forgot your Password?</Text>
+            <Text
+              style={styles.forgotPassword}
+              onPress={() => navigation.navigate("ForgotPassword")}
+            >
+              Forgot your Password?
+            </Text>
           </View>
 
           <CustomButton

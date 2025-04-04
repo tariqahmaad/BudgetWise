@@ -13,6 +13,7 @@ import { COLORS, HEADER_STYLE } from "../constants/theme";
 import SignUpPage from "../Screens/Authenication/SignUpPage";
 import LoginPage from "../Screens/Authenication/LoginPage";
 import { AuthProvider, AuthContext } from "../context/AuthProvider";
+import ForgotPasswordPage from "../Screens/Authenication/ForgotPage";
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -41,6 +42,7 @@ const AuthStack = () => (
   >
     <Stack.Screen name="SignUp" component={SignUpPage} />
     <Stack.Screen name="SignIn" component={LoginPage} />
+    <Stack.Screen name="ForgotPassword" component={ForgotPasswordPage} />
   </Stack.Navigator>
 );
 
@@ -56,7 +58,6 @@ const DashboardStack = () => (
 
 const RootNavigator = () => {
   const { user } = useContext(AuthContext);
-
   return user ? <DashboardStack /> : <AuthStack />;
 };
 
