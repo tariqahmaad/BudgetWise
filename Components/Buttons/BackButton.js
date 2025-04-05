@@ -18,8 +18,8 @@ export default BackButton;
 const styles = StyleSheet.create({
   backButtonContainer: {
     backgroundColor: "#CCCCCC",
-    height: 50,
-    width: 50,
+    height: 45,
+    width: 45,
     borderRadius: 50,
     alignItems: "center",
     justifyContent: "center",

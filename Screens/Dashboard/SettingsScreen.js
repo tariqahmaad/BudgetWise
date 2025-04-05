@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { signOut } from "firebase/auth";
 import AddAccountModal from '../../Components/Settings/AddAccountModal';
 import AddCategoryModal from '../../Components/Settings/AddCategoryModal';
+import BackButton from '../../Components/Buttons/BackButton';
 import {
   auth,
   firestore,
@@ -144,17 +145,21 @@ const SettingsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <TouchableOpacity style={styles.headerButton} onPress={handleSignOut} disabled={isSigningOut}>
-            {isSigningOut ? (
-              <ActivityIndicator size="small" color={COLORS.danger} />
-            ) : (
-              <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
-            )}
-          </TouchableOpacity>
+          <View style={styles.leftContainer}>
+            <BackButton onPress={() => navigation.goBack()} />
+          </View>
+          <View style={styles.centerContainer}>
+            <Text style={styles.headerTitle}>Settings</Text>
+          </View>
+          <View style={styles.rightContainer}>
+            <TouchableOpacity style={styles.headerButton} onPress={handleSignOut} disabled={isSigningOut}>
+              {isSigningOut ? (
+                <ActivityIndicator size="small" color={COLORS.danger} />
+              ) : (
+                <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
@@ -298,11 +303,27 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingHorizontal: 16,
     paddingBottom: 10,
     backgroundColor: COLORS.white,
+  },
+  leftContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  centerContainer: {
+    flex: 2,
+    alignItems: 'center',
+  },
+  rightContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: "Poppins-SemiBold",
+    color: '#000',
   },
   headerButton: {
     width: 40,
@@ -311,11 +332,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F2F7',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontFamily: "Poppins-SemiBold",
-    color: '#000',
   },
   content: { flex: 1, paddingHorizontal: 16 },
   scrollContentContainer: { paddingTop: 20, paddingBottom: 80 },

@@ -8,14 +8,13 @@ import SummaryScreen from "../Screens/Dashboard/SummaryScreen";
 import AIScreen from "../Screens/Dashboard/AIScreen";
 import SettingsScreen from "../Screens/Dashboard/SettingsScreen";
 import ProfileScreen from "../Screens/Dashboard/ProfileScreen";
-import NavigationBar from "../Components/NavBar/NavigationBar";
 import { COLORS, HEADER_STYLE } from "../constants/theme";
 import SignUpPage from "../Screens/Authenication/SignUpPage";
 import LoginPage from "../Screens/Authenication/LoginPage";
 import { AuthProvider, AuthContext } from "../context/AuthProvider";
 import AddDebt from "../Screens/Dashboard/SubMenu/AddDebt";
 import AddTransactions from "../Screens/Dashboard/SubMenu/AddTransactions";
-import DebtTrcaking from "../Screens/Dashboard/SubMenu/DebtTracking";
+import DebtTracking from "../Screens/Dashboard/SubMenu/DebtTracking";
 import ForgotPasswordPage from "../Screens/Authenication/ForgotPage";
 
 // Navigation Configuration
@@ -58,7 +57,7 @@ const DashboardStack = () => (
     <Stack.Screen name="Profile" component={ProfileScreen} />
     <Stack.Screen name="addDebt" component={AddDebt} />
     <Stack.Screen name="addTransaction" component={AddTransactions} />
-    <Stack.Screen name="debtTracking" component={DebtTrcaking} />
+    <Stack.Screen name="debtTracking" component={DebtTracking} />
   </Stack.Navigator>
 );
 

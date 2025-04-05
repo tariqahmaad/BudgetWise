@@ -6,12 +6,14 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  StatusBar,
+  Platform,
 } from "react-native";
 import MainCard from "../../../Components/CategoryCards/MainCard";
 import FriendCard from "../../../Components/FriendCards/FriendCard";
 import BackButton from "../../../Components/Buttons/BackButton";
 import Ionicons from "react-native-vector-icons/Ionicons";
+import ScreenWrapper from "../../../Components/ScreenWrapper";
+import { COLORS, SIZES } from "../../../constants/theme";
 
 const DebtTracking = ({ navigation }) => {
   const friends = [
@@ -45,32 +47,34 @@ const DebtTracking = ({ navigation }) => {
       name: "Robert Fox",
       email: "binhan628@gmail.com",
     },
+    {
+      id: 6,
+      // avatar: require("../../../assets/Avatar06.png"),
+      name: "Cameron Williamson",
+      email: "cktm12@gmail.com",
+    },
   ];
 
-  return (
-    <>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="dark-content"
-      />
-      <View
-        style={[
-          styles.container,
-          { paddingTop: StatusBar.currentHeight || 30 },
-        ]}
-      >
-        <BackButton
-          navigation={navigation}
-          onPress={() => navigation.navigate("HomeScreen")}
-        />
-        <Text style={styles.title}>Debt Tracking</Text>
+  const handleBackPress = () => {
+    navigation.navigate("HomeScreen");
+  };
 
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+  return (
+    <ScreenWrapper backgroundColor={COLORS.white}>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <BackButton onPress={handleBackPress} />
+          <Text style={styles.title}>Debt Tracking</Text>
+        </View>
+
+        <View style={styles.mainCardContainer}>
           <Pressable
             style={({ pressed }) => [
-              { transform: [{ scale: pressed ? 0.97 : 1 }] },
-              { transition: "0.2s ease" },
+              {
+                transform: [{ scale: pressed ? 0.97 : 1 }],
+                transitionDuration: '200ms',
+              },
+              styles.cardPressable,
             ]}
             onPress={() => navigation.navigate("HomeScreen")}
           >
@@ -83,27 +87,39 @@ const DebtTracking = ({ navigation }) => {
               Frame={require("../../../assets/debt-tracking-animation.png")}
             />
           </Pressable>
+        </View>
 
+        <View style={styles.addDebtContainer}>
           <Text style={styles.addDebtText}>Add Debt</Text>
 
           <View style={styles.searchContainer}>
             <Ionicons
               name="search"
               size={20}
-              color="#757575"
+              color={COLORS.textSecondary}
               style={styles.searchIcon}
             />
-            <TextInput placeholder="Search" style={styles.searchBar} />
+            <TextInput
+              placeholder="Search Friends"
+              placeholderTextColor={COLORS.textSecondary}
+              style={styles.searchBar}
+            />
           </View>
+        </View>
 
+        <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.friendsContainer}>
-            {friends.map((friend) => (
+            {friends.map((friend, index) => (
               <Pressable
                 key={friend.id}
                 onPress={() => navigation.navigate("addDebt", { friend })}
                 style={({ pressed }) => [
-                  { transform: [{ scale: pressed ? 0.97 : 1 }] },
-                  { transition: "0.2s ease" },
+                  styles.friendPressable,
+                  {
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                    transitionDuration: '200ms',
+                  },
+                  index === friends.length - 1 && { marginBottom: 0 },
                 ]}
               >
                 <FriendCard
@@ -116,54 +132,76 @@ const DebtTracking = ({ navigation }) => {
           </View>
         </ScrollView>
       </View>
-    </>
+    </ScreenWrapper>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    paddingTop: 30,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  scrollContainer: {
-    alignItems: "center",
-    width: "100%",
-    maxWidth: 400,
-    paddingHorizontal: 20,
-  },
-  addDebtText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginTop: 20,
-    alignSelf: "flex-start",
-  },
-  searchContainer: {
-    width: "100%",
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    paddingTop: Platform.OS === "ios" ? 50 : 30,
+    paddingHorizontal: SIZES.padding.xxlarge,
+    marginBottom: SIZES.padding.large,
+  },
+  mainCardContainer: {
+    paddingHorizontal: SIZES.padding.xlarge,
+    marginBottom: SIZES.padding.xxlarge,
+  },
+  title: {
+    fontSize: SIZES.font.xlarge,
+    flex: 1,
+    textAlign: 'center',
+    paddingRight: 40,
+    color: COLORS.text,
+    fontFamily: "Poppins-SemiBold",
+  },
+  scrollContainer: {
+    paddingHorizontal: SIZES.padding.xlarge,
+    paddingBottom: SIZES.padding.xxlarge,
+  },
+  cardPressable: {
+    width: '100%',
+  },
+  addDebtContainer: {
+    paddingHorizontal: SIZES.padding.xlarge,
+    marginBottom: SIZES.padding.large,
+  },
+  addDebtText: {
+    fontSize: SIZES.font.large,
+    fontFamily: "Poppins-SemiBold",
+    color: COLORS.text,
+    marginBottom: SIZES.padding.medium,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.lightGray,
+    borderRadius: SIZES.radius.medium,
+    paddingHorizontal: SIZES.padding.large,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SIZES.padding.large,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: SIZES.padding.medium,
   },
   searchBar: {
     flex: 1,
-    padding: 12,
-    fontSize: 16,
+    paddingVertical: SIZES.padding.medium,
+    fontSize: SIZES.font.medium,
+    fontFamily: "Poppins-Regular",
+    color: COLORS.text,
   },
   friendsContainer: {
     width: "100%",
-    gap: 10,
+    marginTop: SIZES.padding.medium,
+  },
+  friendPressable: {
+    marginBottom: SIZES.padding.medium,
   },
 });
 

@@ -23,7 +23,7 @@ import {
     doc,
     getDoc,
 } from "../../firebase/firebaseConfig";
-
+import BackButton from "../../Components/Buttons/BackButton";
 const ProfileScreen = () => {
     const navigation = useNavigation();
     const [user, setUser] = useState(auth.currentUser);
@@ -181,14 +181,13 @@ const ProfileScreen = () => {
         <ScreenWrapper backgroundColor={COLORS.white}>
             <View style={styles.container}>
                 <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => navigation.goBack()}
-                    >
-                        <Ionicons name="chevron-back" size={24} color="#000000" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Profile</Text>
-                    <View style={styles.headerButton} />
+                    <View style={styles.leftContainer}>
+                        <BackButton onPress={() => navigation.goBack()} />
+                    </View>
+                    <View style={styles.centerContainer}>
+                        <Text style={styles.headerTitle}>Profile</Text>
+                    </View>
+                    <View style={styles.rightContainer} />
                 </View>
 
                 <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
@@ -235,23 +234,25 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
         paddingTop: Platform.OS === 'ios' ? 50 : 20,
         paddingHorizontal: 16,
         paddingBottom: 10,
         backgroundColor: COLORS.white,
     },
-    headerButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#F2F2F7',
-        justifyContent: 'center',
+    leftContainer: {
+        flex: 1,
+        alignItems: 'flex-start',
+    },
+    centerContainer: {
+        flex: 2,
         alignItems: 'center',
+    },
+    rightContainer: {
+        flex: 1,
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: '600',
+        fontFamily: "Poppins-SemiBold",
         color: '#000000',
     },
     content: {

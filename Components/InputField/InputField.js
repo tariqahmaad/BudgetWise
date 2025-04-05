@@ -244,7 +244,6 @@ const InputField = ({
       <View
         style={[
           styles.inputFieldContainer,
-          isFocused && styles.inputFieldContainerFocused,
           error && styles.inputFieldContainerError,
         ]}
       >
@@ -299,8 +298,8 @@ const InputField = ({
             error
               ? COLORS.error
               : isFocused
-              ? COLORS.primary
-              : COLORS.authDivider
+                ? COLORS.primary
+                : COLORS.authDivider
           }
         />
       </View>
@@ -405,9 +404,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     marginBottom: SIZES.padding.small,
     paddingHorizontal: SIZES.padding.small,
-  },
-  inputFieldContainerFocused: {
-    backgroundColor: COLORS.authBackground,
   },
   inputFieldContainerError: {
     borderColor: COLORS.error,
