@@ -16,6 +16,7 @@ import AddDebt from "../Screens/Dashboard/SubMenu/AddDebt";
 import AddTransactions from "../Screens/Dashboard/SubMenu/AddTransactions";
 import DebtTracking from "../Screens/Dashboard/SubMenu/DebtTracking";
 import ForgotPasswordPage from "../Screens/Authenication/ForgotPage";
+import onboardingScreen from "../Screens/onboardingScreen";
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -41,7 +42,8 @@ const AuthStack = () => (
       ...navigationConfig.defaultScreenOptions,
       ...navigationConfig.authStackOptions,
     }}
-  >
+  > 
+    <Stack.Screen name="Onboarding" component={onboardingScreen} />
     <Stack.Screen name="SignUp" component={SignUpPage} />
     <Stack.Screen name="SignIn" component={LoginPage} />
     <Stack.Screen name="ForgotPassword" component={ForgotPasswordPage} />

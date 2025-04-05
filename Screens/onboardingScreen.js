@@ -58,7 +58,7 @@ export default function OnboardingScreen() {
           title="Continue"
           onPress={() => {
             if (isLastPage) {
-              navigation.navigate('Authentication');
+              navigation.navigate('SignUp');
             } else {
               onboardingRef.current.goNext(); // Use .current to access ref methods
             }
