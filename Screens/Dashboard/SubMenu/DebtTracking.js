@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   ScrollView,
@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Pressable,
   Platform,
+  Modal,
+  TouchableOpacity,
+  Alert,
 } from "react-native";
 import MainCard from "../../../Components/CategoryCards/MainCard";
 import FriendCard from "../../../Components/FriendCards/FriendCard";
@@ -14,46 +17,49 @@ import BackButton from "../../../Components/Buttons/BackButton";
 import Ionicons from "react-native-vector-icons/Ionicons";
 import ScreenWrapper from "../../../Components/ScreenWrapper";
 import { COLORS, SIZES } from "../../../constants/theme";
+import { useAuth } from "../../../context/AuthProvider";
+import { firestore, collection, addDoc, onSnapshot, getDocs } from "../../../firebase/firebaseConfig";
 
 const DebtTracking = ({ navigation }) => {
-  const friends = [
-    {
-      id: 1,
-      avatar: require("../../../assets/Avatar01.png"),
-      name: "Jane Cooper",
-      email: "manhhachtk08@gmail.com",
-    },
-    {
-      id: 2,
-      avatar: require("../../../assets/Avatar02.png"),
-      name: "Wade Warren",
-      email: "tienlapspktnd@gmail.com",
-    },
-    {
-      id: 3,
-      avatar: require("../../../assets/Avatar05.png"),
-      name: "Esther Howard",
-      email: "trungkienspktnd@gmail.com",
-    },
-    {
-      id: 4,
-      avatar: require("../../../assets/Avatar04.png"),
-      name: "Cameron Williamson",
-      email: "cktm12@gmail.com",
-    },
-    {
-      id: 5,
-      avatar: require("../../../assets/Avatar03.png"),
-      name: "Robert Fox",
-      email: "binhan628@gmail.com",
-    },
-    {
-      id: 6,
-      // avatar: require("../../../assets/Avatar06.png"),
-      name: "Cameron Williamson",
-      email: "cktm12@gmail.com",
-    },
-  ];
+  const { user } = useAuth();
+
+  const [friends, setFriends] = useState([]);
+  const [totalDebt, setTotalDebt] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const friendsRef = collection(firestore, 'users', user.uid, 'friends');
+    const unsubscribe = onSnapshot(friendsRef, async (snapshot) => {
+      const fetchedFriends = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setFriends(fetchedFriends);
+
+      // Calculate total debt
+      let total = 0;
+      await Promise.all(fetchedFriends.map(async (friend) => {
+        try {
+          const debtsRef = collection(firestore, 'users', user.uid, 'friends', friend.id, 'debts');
+          const debtsSnap = await getDocs(debtsRef);
+          debtsSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.type === 'Debt' && typeof data.amount === 'number') {
+              total += data.amount;
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching debts for friend:', friend.id, error);
+        }
+      }));
+      setTotalDebt(total);
+    }, (error) => {
+      console.error('Error fetching friends:', error);
+    });
+
+    return unsubscribe;
+  }, [user]);
 
   const handleBackPress = () => {
     navigation.navigate("HomeScreen");
@@ -79,8 +85,8 @@ const DebtTracking = ({ navigation }) => {
             onPress={() => navigation.navigate("HomeScreen")}
           >
             <MainCard
-              title="Current Debts"
-              amount="$17,769.88"
+              title="Total Debt"
+              amount={`$${totalDebt.toFixed(2)}`}
               description="See details"
               amountColor="white"
               backgroundColor="#37474F"
@@ -123,7 +129,7 @@ const DebtTracking = ({ navigation }) => {
                 ]}
               >
                 <FriendCard
-                  avatar={friend.avatar}
+                  avatar={require("../../../assets/Avatar01.png")}
                   name={friend.name}
                   email={friend.email}
                 />
@@ -197,8 +203,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   friendsContainer: {
-    width: "100%",
-    marginTop: SIZES.padding.medium,
+    gap: SIZES.padding.medium,
   },
   friendPressable: {
     marginBottom: SIZES.padding.medium,

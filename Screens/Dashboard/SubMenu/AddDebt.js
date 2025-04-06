@@ -7,6 +7,7 @@ import {
   Modal,
   TouchableOpacity,
   Platform,
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import BackButton from "../../../Components/Buttons/BackButton";
@@ -16,12 +17,14 @@ import InputField from "../../../Components/InputField/InputField";
 import FriendCard from "../../../Components/FriendCards/FriendCard";
 import ScreenWrapper from "../../../Components/ScreenWrapper";
 import { COLORS, SIZES, SHADOWS } from "../../../constants/theme";
+import { useAuth } from "../../../context/AuthProvider";
+import { firestore, collection, addDoc, serverTimestamp } from "../../../firebase/firebaseConfig";
 
 const AddDebt = ({ navigation, route }) => {
   // Extract the friend data from route params
   const friend = route.params?.friend || null;
 
-  const [debtType, setDebtType] = useState("Owes");
+  const [debtType, setDebtType] = useState("Loan (They Pay)");
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [dueDate, setDueDate] = useState(new Date());
@@ -56,31 +59,57 @@ const AddDebt = ({ navigation, route }) => {
   };
   // --- End Date Picker Handlers ---
 
-  const handleSaveDept = () => {
-    console.log("Saving dept", {
-      type: debtType,
-      amount,
-      date: date,
-      description,
-      dueDate: dueDate,
-      friend: friend
-        ? {
-          id: friend.id,
-          name: friend.name,
-          email: friend.email,
-        }
-        : null,
-    });
+  const { user } = useAuth();
 
-    setAmount("");
-    setDate(new Date());
-    setDueDate(new Date());
-    setDescription("");
-    setDebtType("Owes");
-    setShowNotification(true);
-    setTimeout(() => {
-      setShowNotification(false);
-    }, 1000);
+  const handleSaveDept = async () => {
+    if (!user) {
+      Alert.alert("Error", "User not authenticated");
+      return;
+    }
+    if (!friend || !friend.id) {
+      Alert.alert("Error", "No friend selected");
+      return;
+    }
+    if (!amount.trim()) {
+      Alert.alert("Error", "Please enter an amount");
+      return;
+    }
+
+    const debtData = {
+      amount: parseFloat(amount),
+      description: description.trim(),
+      type: debtType === "Debt (You Pay)" ? "Debt" : "Loan",
+      date: date.toISOString(),
+      dueDate: dueDate.toISOString(),
+      createdAt: serverTimestamp(),
+      status: "pending",
+    };
+
+    try {
+      const debtsRef = collection(
+        firestore,
+        "users",
+        user.uid,
+        "friends",
+        friend.id,
+        "debts"
+      );
+      await addDoc(debtsRef, debtData);
+
+      setAmount("");
+      setDate(new Date());
+      setDueDate(new Date());
+      setDescription("");
+      setDebtType("Owes");
+      setShowNotification(true);
+      setTimeout(() => {
+        setShowNotification(false);
+        navigation.goBack();
+      }, 1000);
+    } catch (error) {
+      console.error("Error saving debt:", error);
+      Alert.alert("Error", "Failed to save debt");
+    }
   };
 
   // Handle back press
@@ -101,7 +130,7 @@ const AddDebt = ({ navigation, route }) => {
         {friend && (
           <View style={styles.friendCardContainer}>
             <FriendCard
-              avatar={friend.avatar}
+              avatar={require("../../../assets/Avatar01.png")}
               name={friend.name}
               email={friend.email}
             />
@@ -116,8 +145,9 @@ const AddDebt = ({ navigation, route }) => {
 
         {/* ToggleSwitch like AddTransactions */}
         <ToggleSwitch
-          leftOption="Owe"
-          rightOption="Owes"
+          leftOption="Debt (You Pay)"
+          rightOption="Loan (They Pay)"
+          initialValue={debtType}
           onToggle={(value) => setDebtType(value)}
         />
 

@@ -122,5 +122,22 @@ export const DEFAULT_CATEGORY_COLORS = [
     { label: 'Black', value: '#000000' },
 ];
 
+export const CATEGORY_ICONS = [
+  { name: 'basket-outline', label: 'Groceries', color: '#4CAF50' },
+  { name: 'home-outline', label: 'Housing', color: '#4CAF50' },
+  { name: 'car-outline', label: 'Transport', color: '#4CAF50' },
+  { name: 'fast-food-outline', label: 'Food', color: '#4CAF50' },
+  { name: 'medical-outline', label: 'Healthcare', color: '#4CAF50' },
+  { name: 'shirt-outline', label: 'Clothing', color: '#4CAF50' },
+  { name: 'film-outline', label: 'Entertainment', color: '#4CAF50' },
+  { name: 'wifi-outline', label: 'Utilities', color: '#4CAF50' },
+  { name: 'school-outline', label: 'Education', color: '#4CAF50' },
+  { name: 'gift-outline', label: 'Gifts', color: '#4CAF50' },
+  { name: 'card-outline', label: 'Finance', color: '#4CAF50' },
+  { name: 'airplane-outline', label: 'Travel', color: '#4CAF50' },
+  { name: 'fitness-outline', label: 'Health & Fitness', color: '#4CAF50' },
+  { name: 'game-controller-outline', label: 'Gaming', color: '#4CAF50' },
+  { name: 'book-outline', label: 'Books', color: '#4CAF50' },
+];
 
-// ... rest of the existing constants ... 
+// ... rest of the existing constants ...

@@ -1,13 +1,19 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator, TextInput } from "react-native";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
-import { COLORS } from "../../constants/theme";
+import { COLORS, CATEGORY_ICONS } from "../../constants/theme";
 import MainCard from "../../Components/CategoryCards/MainCard";
 import SubCard from "../../Components/CategoryCards/SubCard";
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from "../../Components/ScreenWrapper";
-import { auth, firestore, collection, getDocs, onSnapshot, doc, getDoc } from "../../firebase/firebaseConfig";
+import { auth, firestore, collection, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from "../../firebase/firebaseConfig";
 import Images from "../../constants/Images";
+
+// Create the map dynamically from the imported constant
+const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
+    map[category.label] = category.name;
+    return map;
+}, {});
 
 // Constants for card dimensions and spacing
 const CARD_DIMENSIONS = {
@@ -23,32 +29,6 @@ const CARD_DIMENSIONS = {
     }
 };
 
-// Define sample transaction data
-const transactionData = [
-    {
-        title: "Today",
-        data: [
-            { id: 't1', name: 'Apple Store', category: 'Entertainment', amount: '- $5.99', icon: 'logo-apple', iconBg: '#F2F2F7', iconColor: 'black' },
-            { id: 't2', name: 'Walmart', category: 'Groceries', amount: '- $45.32', icon: 'basket-outline', iconBg: '#E1B345', iconColor: 'white' },
-            { id: 't3', name: 'Pizza Hut', category: 'Food', amount: '- $28.50', icon: 'pizza-outline', iconBg: '#2D8F78', iconColor: 'white' },
-        ]
-    },
-    {
-        title: "Yesterday",
-        data: [
-            { id: 't4', name: 'Spotify', category: 'Entertainment', amount: '- $9.99', icon: 'musical-notes-outline', iconBg: '#007AFF', iconColor: 'white' },
-            { id: 't5', name: 'Amazon', category: 'Shopping', amount: '- $89.99', icon: 'cart-outline', iconBg: '#FF3B30', iconColor: 'white' },
-        ]
-    },
-    {
-        title: "Last 7 Days",
-        data: [
-            { id: 't6', name: 'United Airlines', category: 'Travel', amount: '- $299.00', icon: 'airplane-outline', iconBg: '#0B2749', iconColor: 'white' },
-            { id: 't7', name: 'Bank Fee', category: 'Fees', amount: '- $35.00', icon: 'business-outline', iconBg: '#1C4A3E', iconColor: 'white' },
-        ]
-    },
-];
-
 const HomeScreen = ({ navigation }) => {
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
@@ -61,6 +41,30 @@ const HomeScreen = ({ navigation }) => {
         surname: '',
         avatar: Images.profilePic
     });
+
+    const [transactions, setTransactions] = useState([]);
+
+    const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+    const [newFriendName, setNewFriendName] = useState("");
+    const [newFriendEmail, setNewFriendEmail] = useState("");
+
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const transactionsRef = collection(firestore, "users", user.uid, "transactions");
+        const unsubscribe = onSnapshot(transactionsRef, (snapshot) => {
+            const txns = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setTransactions(txns);
+        }, (error) => {
+            console.error("Error fetching transactions:", error);
+        });
+
+        return unsubscribe;
+    }, []);
 
     const { width } = Dimensions.get('window');
 
@@ -168,16 +172,28 @@ const HomeScreen = ({ navigation }) => {
     }, [categoriesLoading, categoriesData.length]);
 
     const handleFriendPress = useCallback((friend) => {
-        console.log("Navigation to debt tracking with", friend.name);
-    }, []);
+        navigation.navigate('addDebt', { friend });
+    }, [navigation]);
 
-    const friends = useMemo(() => [
-        { id: 1, name: 'Name' },
-        { id: 2, name: 'Name' },
-        { id: 3, name: 'Name' },
-        { id: 4, name: 'Name' },
-        { id: 5, name: 'Name' },
-    ], []);
+    const [friends, setFriends] = useState([]);
+
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const friendsRef = collection(firestore, "users", user.uid, "friends");
+        const unsubscribe = onSnapshot(friendsRef, (snapshot) => {
+            const fetchedFriends = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setFriends(fetchedFriends);
+        }, (error) => {
+            console.error("Error fetching friends: ", error);
+        });
+
+        return unsubscribe;
+    }, []);
 
     const renderPaginationDots = useCallback((currentIndex, total, style) => (
         <View style={[styles.paginationDots, style]}>
@@ -256,7 +272,10 @@ const HomeScreen = ({ navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.friendsFlatListContainer}
                 ListFooterComponent={() => (
-                    <TouchableOpacity style={styles.addFriendButton}>
+                    <TouchableOpacity
+                        style={styles.addFriendButton}
+                        onPress={() => setShowAddFriendModal(true)}
+                    >
                         <View style={styles.addFriendCircle}>
                             <Ionicons name="add" size={32} color={COLORS.text} />
                         </View>
@@ -305,41 +324,51 @@ const HomeScreen = ({ navigation }) => {
         );
     };
 
-    const renderTransactionHistory = () => (
-        <View style={styles.section}>
-            <SectionHeader title="Transaction History" onPress={() => console.log("See all transactions")} />
-            <FlatList
-                data={transactionData}
-                renderItem={({ item }) => (
-                    <View style={styles.transactionGroup}>
-                        <Text style={styles.transactionDate}>{item.title}</Text>
-                        <FlatList
-                            data={item.data}
-                            renderItem={({ item: txn }) => (
-                                <View style={styles.transaction}>
-                                    <View style={styles.transactionLeft}>
-                                        <View style={[styles.transactionIcon, { backgroundColor: txn.iconBg }]}>
-                                            <Ionicons name={txn.icon} size={24} color={txn.iconColor || 'white'} />
-                                        </View>
-                                        <View>
-                                            <Text style={styles.transactionName}>{txn.name}</Text>
-                                            <Text style={styles.transactionCategory}>{txn.category}</Text>
-                                        </View>
-                                    </View>
-                                    <Text style={[styles.transactionAmount, { color: txn.amount.startsWith('+') ? 'green' : '#FF3B30' }]}>{txn.amount}</Text>
+    const renderTransactionHistory = () => {
+        const sortedTransactions = [...transactions].sort((a, b) => {
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            return dateB - dateA;
+        });
+
+        return (
+            <View style={styles.section}>
+                <SectionHeader title="Transaction History" onPress={() => console.log("See all transactions")} />
+                <FlatList
+                    data={sortedTransactions}
+                    renderItem={({ item }) => (
+                        <View style={styles.transaction}>
+                            <View style={styles.transactionLeft}>
+                                <View style={[styles.transactionIcon, { backgroundColor: '#E1B345' }]}>
+                                    <Ionicons
+                                        name={CATEGORY_ICON_MAP[item.category] || 'cash-outline'}
+                                        size={30}
+                                        color={COLORS.text}
+                                    />
                                 </View>
-                            )}
-                            keyExtractor={txn => txn.id}
-                            scrollEnabled={false}
-                            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-                        />
-                    </View>
-                )}
-                keyExtractor={group => group.title}
-                scrollEnabled={false}
-            />
-        </View>
-    );
+                                <View>
+                                    <Text style={styles.transactionName}>{item.description || 'No Description'}</Text>
+                                    <Text style={styles.transactionCategory}>{item.category || 'Uncategorized'}</Text>
+                                    <Text style={{ fontSize: 12, color: '#666' }}>
+                                        {item.date ? new Date(item.date).toLocaleString() : ''}
+                                    </Text>
+                                </View>
+                            </View>
+                            <Text style={[
+                                styles.transactionAmount,
+                                { color: item.type === 'Income' ? 'green' : '#FF3B30' }
+                            ]}>
+                                {item.amount ? `$${parseFloat(item.amount).toFixed(2)}` : '$0.00'}
+                            </Text>
+                        </View>
+                    )}
+                    keyExtractor={item => item.id}
+                    scrollEnabled={false}
+                    ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                />
+            </View>
+        );
+    };
 
     return (
         <ScreenWrapper backgroundColor={COLORS.appBackground}>
@@ -376,6 +405,53 @@ const HomeScreen = ({ navigation }) => {
 
                 <NavigationBar />
             </View>
+
+            {showAddFriendModal && (
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Add New Friend</Text>
+                        <TextInput
+                            placeholder="Name"
+                            placeholderTextColor="#7E848D"
+                            value={newFriendName}
+                            onChangeText={setNewFriendName}
+                            style={styles.modalInput}
+                        />
+                        <TextInput
+                            placeholder="Email"
+                            placeholderTextColor="#7E848D"
+                            value={newFriendEmail}
+                            onChangeText={setNewFriendEmail}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            style={styles.modalInput}
+                        />
+                        <View style={styles.modalButtonRow}>
+                            <TouchableOpacity style={styles.modalButton} onPress={async () => {
+                                try {
+                                    const user = auth.currentUser;
+                                    if (!user || !newFriendName.trim()) return;
+                                    await addDoc(collection(firestore, "users", user.uid, "friends"), {
+                                        name: newFriendName.trim(),
+                                        email: newFriendEmail.trim(),
+                                        createdAt: serverTimestamp(),
+                                    });
+                                    setNewFriendName("");
+                                    setNewFriendEmail("");
+                                    setShowAddFriendModal(false);
+                                } catch (error) {
+                                    console.error("Error adding friend:", error);
+                                }
+                            }}>
+                                <Text style={styles.modalButtonText}>Add</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalButton} onPress={() => setShowAddFriendModal(false)}>
+                                <Text style={styles.modalButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            )}
         </ScreenWrapper>
     );
 };
@@ -404,7 +480,6 @@ const styles = StyleSheet.create({
         width: 50,
         height: 50,
         marginRight: 15,
-
     },
     welcomeTextContainer: {
         flexDirection: "column",
@@ -451,7 +526,7 @@ const styles = StyleSheet.create({
     },
     friendCircle: {
         alignItems: 'center',
-        marginRight: 24,
+        marginRight: 16,
     },
     friendAvatarContainer: {
         width: 65,
@@ -520,7 +595,8 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: 'white',
-        padding: 16,
+        padding: 10,
+        paddingHorizontal: 10,
         borderRadius: 12,
     },
     transactionLeft: {
@@ -528,9 +604,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     transactionIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
@@ -577,8 +653,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    loadingContainer: {
-    },
+    loadingContainer: {},
     emptyState: {
         paddingHorizontal: 40,
     },
@@ -593,6 +668,52 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.gray,
         fontFamily: "Poppins-Regular",
+        textAlign: 'center',
+    },
+    modalOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContainer: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        width: '80%',
+        maxWidth: 400,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontFamily: "Poppins-SemiBold",
+        marginBottom: 20,
+    },
+    modalInput: {
+        padding: 10,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+        marginBottom: 10,
+    },
+    modalButtonRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    modalButton: {
+        padding: 10,
+        backgroundColor: COLORS.primary,
+        borderRadius: 5,
+        flex: 1,
+        marginRight: 5,
+    },
+    modalButtonText: {
+        fontSize: 16,
+        fontFamily: "Poppins-Medium",
+        color: 'white',
         textAlign: 'center',
     },
 });

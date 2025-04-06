@@ -23,7 +23,23 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
+      // Match any document in the 'friends' subcollection for a specific user
+      match /friends/{friendId} {
+        // Allow a user full read/write access ONLY to their own 'friends' subcollection.
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+
+        // Match any document in the 'debts' subcollection for a specific friend
+        match /debts/{debtId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+
       // You can add rules for other subcollections (like transactions) here later following the same pattern.
+
+      // Match any document in the 'transactions' subcollection for a specific user
+      match /transactions/{transactionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // By default, if no rule above matches, access is denied.
