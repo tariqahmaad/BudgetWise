@@ -6,7 +6,7 @@ import MainCard from "../../Components/CategoryCards/MainCard";
 import SubCard from "../../Components/CategoryCards/SubCard";
 import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from "../../Components/ScreenWrapper";
-import { auth, firestore, collection, onSnapshot, doc, getDoc, addDoc, serverTimestamp } from "../../firebase/firebaseConfig";
+import { auth, firestore, collection, onSnapshot, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs } from "../../firebase/firebaseConfig";
 import Images from "../../constants/Images";
 
 // Create the map dynamically from the imported constant
@@ -80,22 +80,59 @@ const HomeScreen = ({ navigation }) => {
         const unsubscribe = onSnapshot(accountsRef, (snapshot) => {
             const accounts = snapshot.docs.map(doc => {
                 const data = doc.data();
-                return {
+                // Common account data regardless of type
+                const accountData = {
                     id: doc.id,
                     title: data.title,
-                    amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
-                    amountColor: data.amountColor || "white",
-                    description: "See details",
                     backgroundColor: data.backgroundColor || "#012249",
                     type: data.type,
-                    Frame: data.type === 'balance' ? require("../../assets/card-animation1.png") :
-                        data.type === 'income_tracker' ? require("../../assets/guy-animation.png") :
-                            require("../../assets/money-animation.png"),
-                    extraField: data.type === 'income_tracker' ? [
-                        { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
-                        { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
-                    ] : []
+                    description: "See details"
                 };
+
+                // Different account types have different display formats
+                switch (data.type) {
+                    case 'balance':
+                        return {
+                            ...accountData,
+                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                            amountColor: data.amountColor || "white",
+                            Frame: require("../../assets/card-animation1.png"),
+                            extraField: []
+                        };
+                    case 'income_tracker':
+                        return {
+                            ...accountData,
+                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                            amountColor: data.amountColor || "lightgreen",
+                            Frame: require("../../assets/guy-animation.png"),
+                            extraField: [
+                                { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
+                                { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
+                            ]
+                        };
+                    case 'savings_goal':
+                        const progress = data.savingGoalTarget > 0
+                            ? Math.min(100, ((data.currentBalance ?? 0) / data.savingGoalTarget) * 100)
+                            : 0;
+                        return {
+                            ...accountData,
+                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                            amountColor: data.amountColor || "white",
+                            Frame: require("../../assets/money-animation.png"),
+                            extraField: [
+                                { label: "Goal", value: `$${(data.savingGoalTarget ?? 0).toFixed(2)}`, color: "#FDB347" },
+                                { label: "Progress", value: `${progress.toFixed(0)}%`, color: progress >= 100 ? "lightgreen" : "#FDB347" }
+                            ]
+                        };
+                    default:
+                        return {
+                            ...accountData,
+                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                            amountColor: "white",
+                            Frame: require("../../assets/card-animation1.png"),
+                            extraField: []
+                        };
+                }
             });
             setMainCardsData(accounts);
             setAccountsLoading(false);
@@ -106,7 +143,7 @@ const HomeScreen = ({ navigation }) => {
         return unsubscribe;
     }, []);
 
-    // Fetch categories
+    // Fetch categories and calculate totals from transactions
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -114,25 +151,82 @@ const HomeScreen = ({ navigation }) => {
             return;
         }
         setCategoriesLoading(true);
+
         const categoriesRef = collection(firestore, "users", user.uid, "categories");
-        const unsubscribe = onSnapshot(categoriesRef, (snapshot) => {
-            const categories = snapshot.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    Category: data.name,
-                    amount: "$0.00",
-                    description: "No spending yet",
-                    backgroundColor: data.backgroundColor,
-                    iconName: data.iconName,
-                };
-            });
-            setCategoriesData(categories);
-            setCategoriesLoading(false);
+        const unsubscribe = onSnapshot(categoriesRef, async (snapshot) => {
+            try {
+                // First get all the categories
+                const categoriesData = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        Category: data.name,
+                        amount: "$0.00", // This will be updated below
+                        description: "No spending yet", // This will be updated if we have transactions
+                        backgroundColor: data.backgroundColor || DEFAULT_CATEGORY_COLORS[0].value,
+                        iconName: data.iconName || 'help-circle-outline',
+                        name: data.name,
+                    };
+                });
+
+                // Get all expense transactions
+                const transactionsRef = collection(firestore, "users", user.uid, "transactions");
+                const transQuery = query(transactionsRef, where("type", "==", "Expenses"));
+                const transSnapshot = await getDocs(transQuery);
+
+                if (!transSnapshot.empty) {
+                    // Create a map to track category totals and latest transactions
+                    const categoryTotals = {};
+                    const categoryLatestDesc = {};
+                    const categoryTransactionCounts = {};
+
+                    // Calculate totals for each category
+                    transSnapshot.forEach(doc => {
+                        const transaction = doc.data();
+                        const category = transaction.category;
+                        if (category) {
+                            // Add to category total
+                            if (!categoryTotals[category]) {
+                                categoryTotals[category] = 0;
+                                categoryLatestDesc[category] = "";
+                                categoryTransactionCounts[category] = 0;
+                            }
+                            categoryTotals[category] += transaction.amount || 0;
+                            categoryTransactionCounts[category]++;
+
+                            // Track latest description (simple approach - could be enhanced with date comparison)
+                            if (transaction.description) {
+                                categoryLatestDesc[category] = transaction.description;
+                            }
+                        }
+                    });
+
+                    // Update category data with totals
+                    categoriesData.forEach(cat => {
+                        const total = categoryTotals[cat.Category] || 0;
+                        const count = categoryTransactionCounts[cat.Category] || 0;
+                        const desc = categoryLatestDesc[cat.Category];
+
+                        if (total > 0) {
+                            cat.amount = `$${total.toFixed(2)}`;
+                            cat.description = count > 1
+                                ? `${count} expenses`
+                                : (desc || "1 expense");
+                        }
+                    });
+                }
+
+                setCategoriesData(categoriesData);
+                setCategoriesLoading(false);
+            } catch (error) {
+                console.error("Error processing categories and transactions:", error);
+                setCategoriesLoading(false);
+            }
         }, (error) => {
             console.error("Error fetching categories: ", error);
             setCategoriesLoading(false);
         });
+
         return unsubscribe;
     }, []);
 
@@ -237,8 +331,11 @@ const HomeScreen = ({ navigation }) => {
             <>
                 <FlatList
                     data={mainCardsData}
-                    renderItem={({ item }) => (
-                        <MainCard {...item} />
+                    renderItem={({ item, index }) => (
+                        <MainCard
+                            {...item}
+                            isLast={index === mainCardsData.length - 1}
+                        />
                     )}
                     keyExtractor={item => item.id}
                     horizontal
@@ -307,8 +404,11 @@ const HomeScreen = ({ navigation }) => {
                 <SectionHeader title="Spending Categories" onPress={() => console.log("See all categories")} />
                 <FlatList
                     data={categoriesData}
-                    renderItem={({ item }) => (
-                        <SubCard {...item} />
+                    renderItem={({ item, index }) => (
+                        <SubCard
+                            {...item}
+                            isLast={index === categoriesData.length - 1}
+                        />
                     )}
                     keyExtractor={item => item.id}
                     horizontal

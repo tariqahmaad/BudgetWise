@@ -204,6 +204,7 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                 return;
             }
 
+            // After validation, prepare the account data with proper initialization of all fields
             const accountData = {
                 userId: user.uid,
                 title: trimmedTitle,
@@ -213,15 +214,21 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
                 totalIncome: 0,
                 totalExpenses: 0,
                 savingGoalTarget: 0,
-                backgroundColor: accountType === 'balance' ? "#012249" :
-                    accountType === 'income_tracker' ? "#2F2F42" : "#AF7700",
+                backgroundColor: getAccountTypeColor(accountType),
                 amountColor: accountType === 'income_tracker' ? "lightgreen" : "white",
             };
 
+            // Set type-specific initial values
             if (accountType === 'balance') {
                 accountData.currentBalance = parseFloat(initialBalance) || 0;
+            } else if (accountType === 'income_tracker') {
+                // For income tracker, we need to initialize all tracking fields
+                accountData.currentBalance = parseFloat(initialBalance) || 0;
+                accountData.totalIncome = accountData.currentBalance > 0 ? accountData.currentBalance : 0;
+                accountData.totalExpenses = 0;
             } else if (accountType === 'savings_goal') {
                 accountData.savingGoalTarget = parseFloat(savingGoal) || 0;
+                accountData.currentBalance = parseFloat(initialBalance) || 0;
             }
 
             await addDoc(collection(firestore, "users", user.uid, "accounts"), accountData);
@@ -366,13 +373,13 @@ const AddAccountModal = ({ isVisible, onClose, user, setIsLoading: setParentLoad
 const getAccountTypeIcon = (type) => {
     switch (type) {
         case 'balance':
-            return 'wallet-outline';
+            return 'wallet-sharp'; // More defined wallet icon for balance tracking
         case 'income_tracker':
-            return 'trending-up-outline';
+            return 'stats-chart'; // Chart icon better represents income/expense tracking
         case 'savings_goal':
-            return 'save-outline';
+            return 'trophy'; // Trophy icon represents achieving a savings goal
         default:
-            return 'wallet-outline';
+            return 'wallet-sharp';
     }
 };
 
