@@ -29,6 +29,18 @@ const CARD_DIMENSIONS = {
     }
 };
 
+// Extracted SectionHeader component
+const SectionHeader = ({ title, onPress }) => (
+    <View style={styles.sectionContainer}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {onPress && (
+            <TouchableOpacity onPress={onPress}>
+                <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+        )}
+    </View>
+);
+
 const HomeScreen = ({ navigation }) => {
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
@@ -36,6 +48,7 @@ const HomeScreen = ({ navigation }) => {
     const [categoriesData, setCategoriesData] = useState([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
+    const [rawCategories, setRawCategories] = useState([]);
     const [userData, setUserData] = useState({
         name: '',
         surname: '',
@@ -143,7 +156,7 @@ const HomeScreen = ({ navigation }) => {
         return unsubscribe;
     }, []);
 
-    // Fetch categories and calculate totals from transactions
+    // Fetch raw categories (without transaction logic)
     useEffect(() => {
         const user = auth.currentUser;
         if (!user) {
@@ -151,84 +164,93 @@ const HomeScreen = ({ navigation }) => {
             return;
         }
         setCategoriesLoading(true);
-
         const categoriesRef = collection(firestore, "users", user.uid, "categories");
-        const unsubscribe = onSnapshot(categoriesRef, async (snapshot) => {
+        const unsubscribe = onSnapshot(categoriesRef, (snapshot) => {
             try {
-                // First get all the categories
-                const categoriesData = snapshot.docs.map(doc => {
+                const fetchedCategories = snapshot.docs.map(doc => {
                     const data = doc.data();
                     return {
                         id: doc.id,
                         Category: data.name,
-                        amount: "$0.00", // This will be updated below
-                        description: "No spending yet", // This will be updated if we have transactions
-                        backgroundColor: data.backgroundColor || DEFAULT_CATEGORY_COLORS[0].value,
+                        backgroundColor: data.backgroundColor || COLORS.primary, // Use a default
                         iconName: data.iconName || 'help-circle-outline',
                         name: data.name,
                     };
                 });
-
-                // Get all expense transactions
-                const transactionsRef = collection(firestore, "users", user.uid, "transactions");
-                const transQuery = query(transactionsRef, where("type", "==", "Expenses"));
-                const transSnapshot = await getDocs(transQuery);
-
-                if (!transSnapshot.empty) {
-                    // Create a map to track category totals and latest transactions
-                    const categoryTotals = {};
-                    const categoryLatestDesc = {};
-                    const categoryTransactionCounts = {};
-
-                    // Calculate totals for each category
-                    transSnapshot.forEach(doc => {
-                        const transaction = doc.data();
-                        const category = transaction.category;
-                        if (category) {
-                            // Add to category total
-                            if (!categoryTotals[category]) {
-                                categoryTotals[category] = 0;
-                                categoryLatestDesc[category] = "";
-                                categoryTransactionCounts[category] = 0;
-                            }
-                            categoryTotals[category] += transaction.amount || 0;
-                            categoryTransactionCounts[category]++;
-
-                            // Track latest description (simple approach - could be enhanced with date comparison)
-                            if (transaction.description) {
-                                categoryLatestDesc[category] = transaction.description;
-                            }
-                        }
-                    });
-
-                    // Update category data with totals
-                    categoriesData.forEach(cat => {
-                        const total = categoryTotals[cat.Category] || 0;
-                        const count = categoryTransactionCounts[cat.Category] || 0;
-                        const desc = categoryLatestDesc[cat.Category];
-
-                        if (total > 0) {
-                            cat.amount = `$${total.toFixed(2)}`;
-                            cat.description = count > 1
-                                ? `${count} expenses`
-                                : (desc || "1 expense");
-                        }
-                    });
-                }
-
-                setCategoriesData(categoriesData);
+                setRawCategories(fetchedCategories);
                 setCategoriesLoading(false);
             } catch (error) {
-                console.error("Error processing categories and transactions:", error);
+                console.error("Error fetching categories:", error);
                 setCategoriesLoading(false);
             }
         }, (error) => {
-            console.error("Error fetching categories: ", error);
+            console.error("Error subscribing to categories:", error);
             setCategoriesLoading(false);
         });
 
         return unsubscribe;
     }, []);
+
+    // Memoize category data calculation based on raw categories and transactions
+    const processedCategoriesData = useMemo(() => {
+        // Create a map to track category totals and latest transactions
+        const categoryTotals = {};
+        const categoryLatestDesc = {};
+        const categoryTransactionCounts = {};
+
+        // Filter expense transactions
+        const expenseTransactions = transactions.filter(t => t.type === 'Expenses');
+
+        // Calculate totals for each category using the transactions state
+        expenseTransactions.forEach(transaction => {
+            const category = transaction.category;
+            if (category) {
+                if (!categoryTotals[category]) {
+                    categoryTotals[category] = 0;
+                    categoryLatestDesc[category] = "";
+                    categoryTransactionCounts[category] = 0;
+                }
+                categoryTotals[category] += transaction.amount || 0;
+                categoryTransactionCounts[category]++;
+
+                // Track latest description
+                if (transaction.description) {
+                    categoryLatestDesc[category] = transaction.description;
+                }
+            }
+        });
+
+        // Map raw categories to the final structure with calculated amounts
+        return rawCategories.map(cat => {
+            const total = categoryTotals[cat.Category] || 0;
+            const count = categoryTransactionCounts[cat.Category] || 0;
+            const desc = categoryLatestDesc[cat.Category];
+            let amountStr = "$0.00";
+            let descriptionStr = "No spending yet";
+
+            if (total > 0) {
+                amountStr = `$${total.toFixed(2)}`;
+                descriptionStr = count > 1
+                    ? `${count} expenses`
+                    : (desc || "1 expense");
+            }
+
+            return {
+                ...cat,
+                amount: amountStr,
+                description: descriptionStr,
+            };
+        });
+    }, [rawCategories, transactions]);
+
+    // Memoize sorted transactions
+    const sortedTransactions = useMemo(() => {
+        return [...transactions].sort((a, b) => {
+            const dateA = a.date ? new Date(a.date) : new Date(0); // Handle undefined dates
+            const dateB = b.date ? new Date(b.date) : new Date(0); // Handle undefined dates
+            return dateB - dateA;
+        });
+    }, [transactions]);
 
     // Fetch user data
     useEffect(() => {
@@ -260,14 +282,32 @@ const HomeScreen = ({ navigation }) => {
     }, [accountsLoading, mainCardsData.length]);
 
     const handleSubScroll = useCallback((event) => {
-        if (categoriesLoading || categoriesData.length === 0) return;
+        if (categoriesLoading || processedCategoriesData.length === 0) return;
         const index = Math.round(event.nativeEvent.contentOffset.x / CARD_DIMENSIONS.subCard.totalWidth);
-        setSubCardIndex(Math.min(Math.max(index, 0), categoriesData.length - 1));
-    }, [categoriesLoading, categoriesData.length]);
+        setSubCardIndex(Math.min(Math.max(index, 0), processedCategoriesData.length - 1));
+    }, [categoriesLoading, processedCategoriesData.length]);
 
     const handleFriendPress = useCallback((friend) => {
         navigation.navigate('addDebt', { friend });
     }, [navigation]);
+
+    // Memoize renderItem for MainCards
+    const renderMainCardItem = useCallback(({ item, index }) => (
+        <MainCard
+            {...item}
+            isLast={index === mainCardsData.length - 1}
+        />
+    ), [mainCardsData.length]);
+
+    // Memoize renderItem for FriendsList
+    const renderFriendItem = useCallback(({ item }) => (
+        <TouchableOpacity style={styles.friendCircle} onPress={() => handleFriendPress(item)}>
+            <View style={styles.friendAvatarContainer}>
+                <Ionicons name="person-circle-outline" size={50} color={COLORS.text} />
+            </View>
+            <Text style={styles.friendName}>{item.name}</Text>
+        </TouchableOpacity>
+    ), [handleFriendPress]);
 
     const [friends, setFriends] = useState([]);
 
@@ -303,18 +343,8 @@ const HomeScreen = ({ navigation }) => {
         </View>
     ), []);
 
-    const SectionHeader = ({ title, onPress }) => (
-        <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            {onPress && (
-                <TouchableOpacity onPress={onPress}>
-                    <Text style={styles.seeAllText}>See All</Text>
-                </TouchableOpacity>
-            )}
-        </View>
-    );
-
-    const renderMainCards = () => {
+    // Memoize main rendering functions
+    const renderMainCards = useCallback(() => {
         if (accountsLoading) {
             return <ActivityIndicator size="large" color={COLORS.primary} style={styles.cardContainerHeight} />;
         }
@@ -331,13 +361,8 @@ const HomeScreen = ({ navigation }) => {
             <>
                 <FlatList
                     data={mainCardsData}
-                    renderItem={({ item, index }) => (
-                        <MainCard
-                            {...item}
-                            isLast={index === mainCardsData.length - 1}
-                        />
-                    )}
-                    keyExtractor={item => item.id}
+                    renderItem={renderMainCardItem}
+                    keyExtractor={item => String(item.id)}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.flatListContentContainer}
@@ -345,26 +370,22 @@ const HomeScreen = ({ navigation }) => {
                     scrollEventThrottle={16}
                     snapToInterval={CARD_DIMENSIONS.mainCard.totalWidth}
                     decelerationRate="fast"
+                    initialNumToRender={2}
+                    maxToRenderPerBatch={3}
+                    windowSize={5}
                 />
                 {mainCardsData.length > 1 && renderPaginationDots(mainCardIndex, mainCardsData.length, { marginTop: 10 })}
             </>
         );
-    };
+    }, [accountsLoading, mainCardsData, mainCardIndex, renderMainCardItem, renderPaginationDots]);
 
-    const renderFriendsSection = () => (
+    const renderFriendsSection = useCallback(() => (
         <>
-            <SectionHeader title="View your friends" onPress={() => console.log("See all friends")} />
+            <SectionHeader title="View your friends" onPress={() => { /* TODO: Navigate to Friends List */ }} />
             <FlatList
                 data={friends}
-                renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.friendCircle} onPress={() => handleFriendPress(item)}>
-                        <View style={styles.friendAvatarContainer}>
-                            <Ionicons name="person-circle-outline" size={50} color={COLORS.text} />
-                        </View>
-                        <Text style={styles.friendName}>{item.name}</Text>
-                    </TouchableOpacity>
-                )}
-                keyExtractor={item => item.id.toString()}
+                renderItem={renderFriendItem}
+                keyExtractor={item => String(item.id)}
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.friendsFlatListContainer}
@@ -381,13 +402,13 @@ const HomeScreen = ({ navigation }) => {
                 )}
             />
         </>
-    );
+    ), [friends, renderFriendItem, handleFriendPress, showAddFriendModal, setShowAddFriendModal]);
 
-    const renderSubCards = () => {
+    const renderSubCards = useCallback(() => {
         if (categoriesLoading) {
             return <ActivityIndicator size="large" color={COLORS.primary} style={styles.cardContainerHeight} />;
         }
-        if (categoriesData.length === 0) {
+        if (processedCategoriesData.length === 0) {
             return (
                 <View style={styles.section}>
                     <SectionHeader title="Spending Categories" />
@@ -401,16 +422,11 @@ const HomeScreen = ({ navigation }) => {
         }
         return (
             <>
-                <SectionHeader title="Spending Categories" onPress={() => console.log("See all categories")} />
+                <SectionHeader title="Spending Categories" onPress={() => { /* TODO: Navigate to Categories List */ }} />
                 <FlatList
-                    data={categoriesData}
-                    renderItem={({ item, index }) => (
-                        <SubCard
-                            {...item}
-                            isLast={index === categoriesData.length - 1}
-                        />
-                    )}
-                    keyExtractor={item => item.id}
+                    data={processedCategoriesData}
+                    renderItem={renderSubCardItem}
+                    keyExtractor={item => String(item.id)}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.flatListContentContainer}
@@ -418,57 +434,89 @@ const HomeScreen = ({ navigation }) => {
                     scrollEventThrottle={16}
                     snapToInterval={CARD_DIMENSIONS.subCard.totalWidth}
                     decelerationRate="fast"
+                    initialNumToRender={3}
+                    maxToRenderPerBatch={5}
+                    windowSize={7}
                 />
-                {categoriesData.length > 1 && renderPaginationDots(subCardIndex, categoriesData.length, { marginTop: 10 })}
+                {processedCategoriesData.length > 1 && renderPaginationDots(subCardIndex, processedCategoriesData.length, { marginTop: 10 })}
             </>
         );
-    };
+    }, [categoriesLoading, processedCategoriesData, subCardIndex, renderSubCardItem, renderPaginationDots, handleSubScroll]);
 
-    const renderTransactionHistory = () => {
-        const sortedTransactions = [...transactions].sort((a, b) => {
-            const dateA = new Date(a.date);
-            const dateB = new Date(b.date);
-            return dateB - dateA;
-        });
+    // Memoize the renderItem for SubCards
+    const renderSubCardItem = useCallback(({ item, index }) => (
+        <SubCard
+            {...item}
+            isLast={index === processedCategoriesData.length - 1}
+        />
+    ), [processedCategoriesData.length]);
 
+    const renderTransactionHistory = useCallback(() => {
         return (
             <View style={styles.section}>
-                <SectionHeader title="Transaction History" onPress={() => console.log("See all transactions")} />
+                <SectionHeader title="Transaction History" onPress={() => { /* TODO: Navigate to Transactions List */ }} />
                 <FlatList
                     data={sortedTransactions}
-                    renderItem={({ item }) => (
-                        <View style={styles.transaction}>
-                            <View style={styles.transactionLeft}>
-                                <View style={[styles.transactionIcon, { backgroundColor: '#E1B345' }]}>
-                                    <Ionicons
-                                        name={CATEGORY_ICON_MAP[item.category] || 'cash-outline'}
-                                        size={30}
-                                        color={COLORS.text}
-                                    />
-                                </View>
-                                <View>
-                                    <Text style={styles.transactionName}>{item.description || 'No Description'}</Text>
-                                    <Text style={styles.transactionCategory}>{item.category || 'Uncategorized'}</Text>
-                                    <Text style={{ fontSize: 12, color: '#666' }}>
-                                        {item.date ? new Date(item.date).toLocaleString() : ''}
-                                    </Text>
-                                </View>
-                            </View>
-                            <Text style={[
-                                styles.transactionAmount,
-                                { color: item.type === 'Income' ? 'green' : '#FF3B30' }
-                            ]}>
-                                {item.amount ? `$${parseFloat(item.amount).toFixed(2)}` : '$0.00'}
-                            </Text>
-                        </View>
-                    )}
-                    keyExtractor={item => item.id}
+                    renderItem={renderTransactionItem}
+                    keyExtractor={item => String(item.id)}
                     scrollEnabled={false}
                     ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+                    initialNumToRender={5}
+                    maxToRenderPerBatch={10}
+                    windowSize={11}
                 />
             </View>
         );
-    };
+    }, [sortedTransactions, renderTransactionItem]);
+
+    // Memoize the renderItem for Transactions
+    const renderTransactionItem = useCallback(({ item }) => (
+        <View style={styles.transaction}>
+            <View style={styles.transactionLeft}>
+                <View style={[styles.transactionIcon, { backgroundColor: '#E1B345' }]}>
+                    <Ionicons
+                        name={CATEGORY_ICON_MAP[item.category] || 'cash-outline'}
+                        size={30}
+                        color={COLORS.text}
+                    />
+                </View>
+                <View>
+                    <Text style={styles.transactionName}>{item.description || 'No Description'}</Text>
+                    <Text style={styles.transactionCategory}>{item.category || 'Uncategorized'}</Text>
+                    <Text style={{ fontSize: 12, color: '#666' }}>
+                        {item.date ? new Date(item.date).toLocaleString() : ''}
+                    </Text>
+                </View>
+            </View>
+            <Text style={[
+                styles.transactionAmount,
+                { color: item.type === 'Income' ? 'green' : '#FF3B30' }
+            ]}>
+                {item.amount ? `$${parseFloat(item.amount).toFixed(2)}` : '$0.00'}
+            </Text>
+        </View>
+    ), []);
+
+    const handleAddFriend = useCallback(async () => {
+        try {
+            const user = auth.currentUser;
+            if (!user || !newFriendName.trim()) return;
+            await addDoc(collection(firestore, "users", user.uid, "friends"), {
+                name: newFriendName.trim(),
+                email: newFriendEmail.trim(),
+                createdAt: serverTimestamp(),
+            });
+            setNewFriendName("");
+            setNewFriendEmail("");
+            setShowAddFriendModal(false);
+        } catch (error) {
+            console.error("Error adding friend:", error);
+        }
+    }, [newFriendName, newFriendEmail]);
+
+    const handleCancelAddFriend = useCallback(() => {
+        setShowAddFriendModal(false);
+    }, []);
 
     return (
         <ScreenWrapper backgroundColor={COLORS.appBackground}>
@@ -527,25 +575,10 @@ const HomeScreen = ({ navigation }) => {
                             style={styles.modalInput}
                         />
                         <View style={styles.modalButtonRow}>
-                            <TouchableOpacity style={styles.modalButton} onPress={async () => {
-                                try {
-                                    const user = auth.currentUser;
-                                    if (!user || !newFriendName.trim()) return;
-                                    await addDoc(collection(firestore, "users", user.uid, "friends"), {
-                                        name: newFriendName.trim(),
-                                        email: newFriendEmail.trim(),
-                                        createdAt: serverTimestamp(),
-                                    });
-                                    setNewFriendName("");
-                                    setNewFriendEmail("");
-                                    setShowAddFriendModal(false);
-                                } catch (error) {
-                                    console.error("Error adding friend:", error);
-                                }
-                            }}>
+                            <TouchableOpacity style={styles.modalButton} onPress={handleAddFriend}>
                                 <Text style={styles.modalButtonText}>Add</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalButton} onPress={() => setShowAddFriendModal(false)}>
+                            <TouchableOpacity style={styles.modalButton} onPress={handleCancelAddFriend}>
                                 <Text style={styles.modalButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>

@@ -24,6 +24,8 @@ import {
     getDoc,
 } from "../../firebase/firebaseConfig";
 import BackButton from "../../Components/Buttons/BackButton";
+import SettingListItem from "../../Components/Common/SettingListItem";
+
 const ProfileScreen = () => {
     const navigation = useNavigation();
     const [user, setUser] = useState(auth.currentUser);
@@ -102,31 +104,6 @@ const ProfileScreen = () => {
             ]
         );
     };
-
-    const renderSettingItem = ({ title, onPress, icon, badgeCount }) => (
-        <TouchableOpacity
-            style={styles.settingItem}
-            onPress={onPress}
-            activeOpacity={0.7}
-        >
-            <View style={styles.settingItemLeft}>
-                {icon && (
-                    <View style={[styles.iconContainer, { backgroundColor: icon.backgroundColor }]}>
-                        <Ionicons name={icon.name} size={18} color={icon.color} />
-                    </View>
-                )}
-                <Text style={[styles.settingItemTitle, icon && { marginLeft: 12 }]}>{title}</Text>
-            </View>
-            <View style={styles.settingItemRight}>
-                {badgeCount > 0 && (
-                    <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{badgeCount.toString()}</Text>
-                    </View>
-                )}
-                <Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
-            </View>
-        </TouchableOpacity>
-    );
 
     const settingsItems = [
         {
@@ -212,7 +189,14 @@ const ProfileScreen = () => {
                         <View style={styles.settingsGroup}>
                             {settingsItems.map((item, index) => (
                                 <React.Fragment key={index}>
-                                    {renderSettingItem(item)}
+                                    <SettingListItem
+                                        icon={item.icon?.name}
+                                        iconColor={item.icon?.color}
+                                        iconBackgroundColor={item.icon?.backgroundColor}
+                                        title={item.title}
+                                        onPress={item.onPress}
+                                        badgeCount={item.badgeCount}
+                                    />
                                     {index < settingsItems.length - 1 && <View style={styles.separator} />}
                                 </React.Fragment>
                             ))}
@@ -305,53 +289,12 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.08,
         shadowRadius: 2,
         elevation: 2,
-    },
-    settingItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-    },
-    settingItemLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    settingItemTitle: {
-        fontSize: 16,
-        fontWeight: '400',
-        color: '#000000',
-    },
-    settingItemRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    badge: {
-        backgroundColor: COLORS.danger,
-        borderRadius: 10,
-        minWidth: 20,
-        height: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8,
-    },
-    badgeText: {
-        color: '#FFFFFF',
-        fontSize: 12,
-        fontWeight: '600',
-        paddingHorizontal: 6,
+        marginBottom: 20,
     },
     separator: {
-        height: 0.5,
+        height: StyleSheet.hairlineWidth,
         backgroundColor: '#E5E5EA',
-        marginHorizontal: 16,
+        marginLeft: 16,
     },
 });
 
