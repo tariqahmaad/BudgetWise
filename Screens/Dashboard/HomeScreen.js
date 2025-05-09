@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import { auth, firestore, collection, onSnapshot, doc, getDoc, addDoc, serverTimestamp, query, where, getDocs } from "../../firebase/firebaseConfig";
 import Images from "../../constants/Images";
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -61,135 +63,239 @@ const HomeScreen = ({ navigation }) => {
     const [newFriendName, setNewFriendName] = useState("");
     const [newFriendEmail, setNewFriendEmail] = useState("");
 
+    const [isConnected, setIsConnected] = useState(true);
+
+    // Helper to get user
+    const getUser = () => auth.currentUser;
+
+    // --- ACCOUNTS ---
     useEffect(() => {
-        const user = auth.currentUser;
+        const user = getUser();
+        if (!user) {
+            setAccountsLoading(false);
+            return;
+        }
+        const cacheKey = `@budgetwise_accounts_${user.uid}`;
+        const fetchAccounts = async () => {
+            if (!isConnected) {
+                // Offline: load from cache
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setMainCardsData(JSON.parse(cached));
+                }
+                setAccountsLoading(false);
+                return;
+            }
+            setAccountsLoading(true);
+            const accountsRef = collection(firestore, "users", user.uid, "accounts");
+            const unsubscribe = onSnapshot(accountsRef, (snapshot) => {
+                const accounts = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Common account data regardless of type
+                    const accountData = {
+                        id: doc.id,
+                        title: data.title,
+                        backgroundColor: data.backgroundColor || "#012249",
+                        type: data.type,
+                        description: "See details"
+                    };
+
+                    // Different account types have different display formats
+                    switch (data.type) {
+                        case 'balance':
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "white",
+                                Frame: require("../../assets/card-animation1.png"),
+                                extraField: []
+                            };
+                        case 'income_tracker':
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "lightgreen",
+                                Frame: require("../../assets/guy-animation.png"),
+                                extraField: [
+                                    { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
+                                    { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
+                                ]
+                            };
+                        case 'savings_goal':
+                            const progress = data.savingGoalTarget > 0
+                                ? Math.min(100, ((data.currentBalance ?? 0) / data.savingGoalTarget) * 100)
+                                : 0;
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "white",
+                                Frame: require("../../assets/money-animation.png"),
+                                extraField: [
+                                    { label: "Goal", value: `$${(data.savingGoalTarget ?? 0).toFixed(2)}`, color: "#FDB347" },
+                                    { label: "Progress", value: `${progress.toFixed(0)}%`, color: progress >= 100 ? "lightgreen" : "#FDB347" }
+                                ]
+                            };
+                        default:
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: "white",
+                                Frame: require("../../assets/card-animation1.png"),
+                                extraField: []
+                            };
+                    }
+                });
+                setMainCardsData(accounts);
+                AsyncStorage.setItem(cacheKey, JSON.stringify(accounts)).catch(() => { });
+                setAccountsLoading(false);
+            }, (error) => {
+                console.error("Error fetching accounts: ", error);
+                setAccountsLoading(false);
+            });
+            return unsubscribe;
+        };
+        fetchAccounts();
+    }, [isConnected]);
+
+    // --- CATEGORIES ---
+    useEffect(() => {
+        const user = getUser();
+        if (!user) {
+            setCategoriesLoading(false);
+            return;
+        }
+        const cacheKey = `@budgetwise_categories_${user.uid}`;
+        const fetchCategories = async () => {
+            if (!isConnected) {
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setRawCategories(JSON.parse(cached));
+                }
+                setCategoriesLoading(false);
+                return;
+            }
+            setCategoriesLoading(true);
+            const categoriesRef = collection(firestore, "users", user.uid, "categories");
+            const unsubscribe = onSnapshot(categoriesRef, (snapshot) => {
+                try {
+                    const fetchedCategories = snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            id: doc.id,
+                            Category: data.name,
+                            backgroundColor: data.backgroundColor || COLORS.primary,
+                            iconName: data.iconName || 'help-circle-outline',
+                            name: data.name,
+                        };
+                    });
+                    setRawCategories(fetchedCategories);
+                    AsyncStorage.setItem(cacheKey, JSON.stringify(fetchedCategories)).catch(() => { });
+                    setCategoriesLoading(false);
+                } catch (error) {
+                    console.error("Error fetching categories:", error);
+                    setCategoriesLoading(false);
+                }
+            }, (error) => {
+                console.error("Error subscribing to categories:", error);
+                setCategoriesLoading(false);
+            });
+            return unsubscribe;
+        };
+        fetchCategories();
+    }, [isConnected]);
+
+    // --- TRANSACTIONS ---
+    useEffect(() => {
+        const user = getUser();
         if (!user) return;
+        const cacheKey = `@budgetwise_transactions_${user.uid}`;
+        const fetchTransactions = async () => {
+            if (!isConnected) {
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setTransactions(JSON.parse(cached));
+                }
+                return;
+            }
+            const transactionsRef = collection(firestore, "users", user.uid, "transactions");
+            const unsubscribe = onSnapshot(transactionsRef, (snapshot) => {
+                const txns = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                setTransactions(txns);
+                AsyncStorage.setItem(cacheKey, JSON.stringify(txns)).catch(() => { });
+            }, (error) => {
+                console.error("Error fetching transactions:", error);
+            });
+            return unsubscribe;
+        };
+        fetchTransactions();
+    }, [isConnected]);
 
-        const transactionsRef = collection(firestore, "users", user.uid, "transactions");
-        const unsubscribe = onSnapshot(transactionsRef, (snapshot) => {
-            const txns = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            setTransactions(txns);
-        }, (error) => {
-            console.error("Error fetching transactions:", error);
-        });
+    // --- FRIENDS ---
+    const [friends, setFriends] = useState([]);
+    useEffect(() => {
+        const user = getUser();
+        if (!user) return;
+        const cacheKey = `@budgetwise_friends_${user.uid}`;
+        const fetchFriends = async () => {
+            if (!isConnected) {
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setFriends(JSON.parse(cached));
+                }
+                return;
+            }
+            const friendsRef = collection(firestore, "users", user.uid, "friends");
+            const unsubscribe = onSnapshot(friendsRef, (snapshot) => {
+                const fetchedFriends = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                setFriends(fetchedFriends);
+                AsyncStorage.setItem(cacheKey, JSON.stringify(fetchedFriends)).catch(() => { });
+            }, (error) => {
+                console.error("Error fetching friends: ", error);
+            });
+            return unsubscribe;
+        };
+        fetchFriends();
+    }, [isConnected]);
 
-        return unsubscribe;
-    }, []);
+    // --- USER DATA ---
+    useEffect(() => {
+        const user = getUser();
+        if (!user) return;
+        const cacheKey = `@budgetwise_user_${user.uid}`;
+        const fetchUserData = async () => {
+            if (!isConnected) {
+                const cached = await AsyncStorage.getItem(cacheKey);
+                if (cached) {
+                    setUserData(JSON.parse(cached));
+                }
+                return;
+            }
+            try {
+                const userDoc = await getDoc(doc(firestore, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    const userObj = {
+                        name: data.name || '',
+                        surname: data.surname || '',
+                        avatar: data.avatar ? { uri: data.avatar } : Images.profilePic
+                    };
+                    setUserData(userObj);
+                    AsyncStorage.setItem(cacheKey, JSON.stringify(userObj)).catch(() => { });
+                }
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+            }
+        };
+        fetchUserData();
+    }, [isConnected]);
 
     const { width } = Dimensions.get('window');
-
-    // Fetch accounts
-    useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) {
-            setAccountsLoading(false);
-            return;
-        }
-        setAccountsLoading(true);
-        const accountsRef = collection(firestore, "users", user.uid, "accounts");
-        const unsubscribe = onSnapshot(accountsRef, (snapshot) => {
-            const accounts = snapshot.docs.map(doc => {
-                const data = doc.data();
-                // Common account data regardless of type
-                const accountData = {
-                    id: doc.id,
-                    title: data.title,
-                    backgroundColor: data.backgroundColor || "#012249",
-                    type: data.type,
-                    description: "See details"
-                };
-
-                // Different account types have different display formats
-                switch (data.type) {
-                    case 'balance':
-                        return {
-                            ...accountData,
-                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
-                            amountColor: data.amountColor || "white",
-                            Frame: require("../../assets/card-animation1.png"),
-                            extraField: []
-                        };
-                    case 'income_tracker':
-                        return {
-                            ...accountData,
-                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
-                            amountColor: data.amountColor || "lightgreen",
-                            Frame: require("../../assets/guy-animation.png"),
-                            extraField: [
-                                { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
-                                { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
-                            ]
-                        };
-                    case 'savings_goal':
-                        const progress = data.savingGoalTarget > 0
-                            ? Math.min(100, ((data.currentBalance ?? 0) / data.savingGoalTarget) * 100)
-                            : 0;
-                        return {
-                            ...accountData,
-                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
-                            amountColor: data.amountColor || "white",
-                            Frame: require("../../assets/money-animation.png"),
-                            extraField: [
-                                { label: "Goal", value: `$${(data.savingGoalTarget ?? 0).toFixed(2)}`, color: "#FDB347" },
-                                { label: "Progress", value: `${progress.toFixed(0)}%`, color: progress >= 100 ? "lightgreen" : "#FDB347" }
-                            ]
-                        };
-                    default:
-                        return {
-                            ...accountData,
-                            amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
-                            amountColor: "white",
-                            Frame: require("../../assets/card-animation1.png"),
-                            extraField: []
-                        };
-                }
-            });
-            setMainCardsData(accounts);
-            setAccountsLoading(false);
-        }, (error) => {
-            console.error("Error fetching accounts: ", error);
-            setAccountsLoading(false);
-        });
-        return unsubscribe;
-    }, []);
-
-    // Fetch raw categories (without transaction logic)
-    useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) {
-            setCategoriesLoading(false);
-            return;
-        }
-        setCategoriesLoading(true);
-        const categoriesRef = collection(firestore, "users", user.uid, "categories");
-        const unsubscribe = onSnapshot(categoriesRef, (snapshot) => {
-            try {
-                const fetchedCategories = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return {
-                        id: doc.id,
-                        Category: data.name,
-                        backgroundColor: data.backgroundColor || COLORS.primary, // Use a default
-                        iconName: data.iconName || 'help-circle-outline',
-                        name: data.name,
-                    };
-                });
-                setRawCategories(fetchedCategories);
-                setCategoriesLoading(false);
-            } catch (error) {
-                console.error("Error fetching categories:", error);
-                setCategoriesLoading(false);
-            }
-        }, (error) => {
-            console.error("Error subscribing to categories:", error);
-            setCategoriesLoading(false);
-        });
-
-        return unsubscribe;
-    }, []);
 
     // Memoize category data calculation based on raw categories and transactions
     const processedCategoriesData = useMemo(() => {
@@ -252,28 +358,6 @@ const HomeScreen = ({ navigation }) => {
         });
     }, [transactions]);
 
-    // Fetch user data
-    useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) return;
-        const fetchUserData = async () => {
-            try {
-                const userDoc = await getDoc(doc(firestore, "users", user.uid));
-                if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    setUserData({
-                        name: data.name || '',
-                        surname: data.surname || '',
-                        avatar: data.avatar ? { uri: data.avatar } : Images.profilePic
-                    });
-                }
-            } catch (error) {
-                console.error("Error fetching user data:", error);
-            }
-        };
-        fetchUserData();
-    }, []);
-
     // Memoized handlers
     const handleMainScroll = useCallback((event) => {
         if (accountsLoading || mainCardsData.length === 0) return;
@@ -308,26 +392,6 @@ const HomeScreen = ({ navigation }) => {
             <Text style={styles.friendName}>{item.name}</Text>
         </TouchableOpacity>
     ), [handleFriendPress]);
-
-    const [friends, setFriends] = useState([]);
-
-    useEffect(() => {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        const friendsRef = collection(firestore, "users", user.uid, "friends");
-        const unsubscribe = onSnapshot(friendsRef, (snapshot) => {
-            const fetchedFriends = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            setFriends(fetchedFriends);
-        }, (error) => {
-            console.error("Error fetching friends: ", error);
-        });
-
-        return unsubscribe;
-    }, []);
 
     const renderPaginationDots = useCallback((currentIndex, total, style) => (
         <View style={[styles.paginationDots, style]}>
@@ -516,6 +580,15 @@ const HomeScreen = ({ navigation }) => {
 
     const handleCancelAddFriend = useCallback(() => {
         setShowAddFriendModal(false);
+    }, []);
+
+    useEffect(() => {
+        const unsubscribeNetInfo = NetInfo.addEventListener(state => {
+            setIsConnected(state.isConnected);
+        });
+        return () => {
+            unsubscribeNetInfo();
+        };
     }, []);
 
     return (

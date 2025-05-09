@@ -1,0 +1,46 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# AI Insights Screen Structure and Logic
+
+## Main Entry Point
+- The AI-powered insights and chat view is implemented in [AIScreen.js](mdc:Screens/Dashboard/AIScreen.js).
+
+## Key Components Used
+- [ScreenWrapper.js](mdc:Components/ScreenWrapper.js): Provides background and layout wrapper for the screen.
+- `LineChart` from `react-native-chart-kit`: Renders the weekly spending chart.
+- [theme.js](mdc:constants/theme.js): Supplies COLORS, SIZES, and FONTS for consistent styling.
+- [AuthProvider.js](mdc:context/AuthProvider.js): Supplies the `user` context for personalized data.
+
+## Data and State Management
+- Uses Firebase (see [firebaseConfig.js](mdc:firebase/firebaseConfig.js)) for:
+  - User authentication (`auth`)
+  - Firestore subcollection `transactions` for the current user
+- State is managed with React hooks (`useState`, `useEffect`).
+- Fetches all transactions for the current month and aggregates them into weekly totals for charting.
+- Handles loading, error, and empty states for the chart and insights.
+
+## Main UI Sections
+- **Top Bar**: Back button, title, and spacer for alignment.
+- **Header Section**: Title and subtitle describing the AI chat feature.
+- **Chart Area**: Displays a line chart of weekly spending for the current month. Shows loading, error, or no-data states as appropriate.
+- **Insight Message**: Dynamically generated text summarizing spending trends (e.g., peak week, consistency, or no data).
+- **Input Area**: Text input and send button for AI chat (future integration with Gemini API or similar).
+
+## Logic Highlights
+- Weekly spending is calculated by grouping transactions by week of the month.
+- Insight message is generated based on the spending pattern (peak week, consistent, or no data).
+- All data is user-specific, loaded from the user's Firestore subcollection.
+- The chat input is currently a placeholder for future AI integration.
+
+## Styling
+- Uses a large StyleSheet at the bottom of [AIScreen.js](mdc:Screens/Dashboard/AIScreen.js) for layout and color consistency.
+- Adapts to both iOS and Android with `KeyboardAvoidingView`.
+
+## Notes
+- This screen is distinct from [HomeScreen.js](mdc:Screens/Dashboard/HomeScreen.js) and other dashboard views by focusing on AI-driven insights and chat.
+- All chart and insight logic is contained within [AIScreen.js](mdc:Screens/Dashboard/AIScreen.js).
+- Handles all loading, error, and empty states gracefully for a robust user experience.
+

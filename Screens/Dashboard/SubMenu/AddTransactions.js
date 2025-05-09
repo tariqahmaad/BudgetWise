@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import ToggleSwitch from "../../../Components/Buttons/ToggleSwitch";
 import BackButton from "../../../Components/Buttons/BackButton";
@@ -242,6 +243,14 @@ const AddTransactions = ({ navigation }) => {
         collection(firestore, "users", user.uid, "transactions"),
         transactionData
       );
+
+      // Invalidate insights cache after successful add
+      try {
+        await AsyncStorage.removeItem('@budgetwise_insights');
+        console.log('[AddTransaction] Cleared insights cache after add.');
+      } catch (e) {
+        console.warn('[AddTransaction] Failed to clear insights cache:', e);
+      }
 
       // Update only the selected account
       const accountRef = firestoreDoc(firestore, "users", user.uid, "accounts", selectedAccountId);

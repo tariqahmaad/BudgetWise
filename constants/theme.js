@@ -26,7 +26,22 @@ export const COLORS = {
     authText: '#1E1E2D',
     authTextSecondary: '#A2A2A7',
     authDivider: '#CCCCCC',
-    authButton: '#CCCCCC'
+    authButton: '#CCCCCC',
+
+    // Add missing colors for AI screen
+    darkBackground: '#181A20', // Deep dark background
+    textLight: '#F5F6FA',      // Light text for dark backgrounds
+    textGray: '#A1A1AA',       // Muted gray text
+    cardBackground: '#23262F', // Card/section background
+    chartLine: '#3B82F6',      // Blue for chart line
+    chartLabel: '#64748B',     // Muted blue-gray for chart axis labels
+    chartPoint: '#2563EB',     // Darker blue for chart points
+    highlightBackground: 'rgba(253, 211, 67, 0.18)', // Soft yellow highlight
+    tooltipBackground: '#22223B', // Tooltip dark bg
+    placeholder: '#8E8E93',    // Placeholder text color
+    inputBackground: '#23262F',// Input field bg
+    lightGray: '#E5E7EB',      // For chart grid lines
+    darkGray: '#23262F',       // For input field and borders
 };
 
 export const SIZES = {
@@ -36,6 +51,7 @@ export const SIZES = {
     button: 45,
     socialIcon: 24,
     inputIcon: 20,
+    base: 8,
 
     // Spacing
     padding: {
@@ -123,21 +139,38 @@ export const DEFAULT_CATEGORY_COLORS = [
 ];
 
 export const CATEGORY_ICONS = [
-  { name: 'basket-outline', label: 'Groceries', color: '#4CAF50' },
-  { name: 'home-outline', label: 'Housing', color: '#4CAF50' },
-  { name: 'car-outline', label: 'Transport', color: '#4CAF50' },
-  { name: 'fast-food-outline', label: 'Food', color: '#4CAF50' },
-  { name: 'medical-outline', label: 'Healthcare', color: '#4CAF50' },
-  { name: 'shirt-outline', label: 'Clothing', color: '#4CAF50' },
-  { name: 'film-outline', label: 'Entertainment', color: '#4CAF50' },
-  { name: 'wifi-outline', label: 'Utilities', color: '#4CAF50' },
-  { name: 'school-outline', label: 'Education', color: '#4CAF50' },
-  { name: 'gift-outline', label: 'Gifts', color: '#4CAF50' },
-  { name: 'card-outline', label: 'Finance', color: '#4CAF50' },
-  { name: 'airplane-outline', label: 'Travel', color: '#4CAF50' },
-  { name: 'fitness-outline', label: 'Health & Fitness', color: '#4CAF50' },
-  { name: 'game-controller-outline', label: 'Gaming', color: '#4CAF50' },
-  { name: 'book-outline', label: 'Books', color: '#4CAF50' },
+    { name: 'basket-outline', label: 'Groceries', color: '#4CAF50' },
+    { name: 'home-outline', label: 'Housing', color: '#4CAF50' },
+    { name: 'car-outline', label: 'Transport', color: '#4CAF50' },
+    { name: 'fast-food-outline', label: 'Food', color: '#4CAF50' },
+    { name: 'medical-outline', label: 'Healthcare', color: '#4CAF50' },
+    { name: 'shirt-outline', label: 'Clothing', color: '#4CAF50' },
+    { name: 'film-outline', label: 'Entertainment', color: '#4CAF50' },
+    { name: 'wifi-outline', label: 'Utilities', color: '#4CAF50' },
+    { name: 'school-outline', label: 'Education', color: '#4CAF50' },
+    { name: 'gift-outline', label: 'Gifts', color: '#4CAF50' },
+    { name: 'card-outline', label: 'Finance', color: '#4CAF50' },
+    { name: 'airplane-outline', label: 'Travel', color: '#4CAF50' },
+    { name: 'fitness-outline', label: 'Health & Fitness', color: '#4CAF50' },
+    { name: 'game-controller-outline', label: 'Gaming', color: '#4CAF50' },
+    { name: 'book-outline', label: 'Books', color: '#4CAF50' },
 ];
 
-// ... rest of the existing constants ...
+export const FONTS = {
+    h3: {
+        fontFamily: 'Poppins-SemiBold',
+        fontSize: 20,
+    },
+    largeTitle: {
+        fontFamily: 'Poppins-Bold',
+        fontSize: 32,
+    },
+    body2: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 15,
+    },
+    body3: {
+        fontFamily: 'Poppins-Regular',
+        fontSize: 13,
+    },
+};
