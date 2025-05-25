@@ -6,6 +6,55 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Get the Gemini Pro model
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
+// Retry configuration
+const RETRY_CONFIG = {
+    maxRetries: 3,
+    baseDelayMs: 1000,
+    maxDelayMs: 10000,
+    backoffMultiplier: 2,
+};
+
+// Utility function to sleep for a given duration
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Retry wrapper for API calls with exponential backoff
+const retryWithBackoff = async (apiCall, operation = 'API call') => {
+    let lastError = null;
+
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        try {
+            console.log(`[Gemini Service LOG] ${operation} - Attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries + 1}`);
+            return await apiCall();
+        } catch (error) {
+            lastError = error;
+
+            // Check if this is a retryable error (503 Service Unavailable or rate limiting)
+            const isRetryableError = error.message && (
+                error.message.includes('[503]') ||
+                error.message.includes('overloaded') ||
+                error.message.includes('rate limit') ||
+                error.message.includes('quota exceeded')
+            );
+
+            // If this is the last attempt or not a retryable error, don't retry
+            if (attempt === RETRY_CONFIG.maxRetries || !isRetryableError) {
+                console.error(`[Gemini Service LOG] ${operation} failed after ${attempt + 1} attempts:`, error);
+                throw error;
+            }
+
+            // Calculate delay with exponential backoff
+            const baseDelay = RETRY_CONFIG.baseDelayMs * Math.pow(RETRY_CONFIG.backoffMultiplier, attempt);
+            const jitter = Math.random() * 0.1 * baseDelay; // Add 10% jitter
+            const delay = Math.min(baseDelay + jitter, RETRY_CONFIG.maxDelayMs);
+
+            console.warn(`[Gemini Service LOG] ${operation} failed (attempt ${attempt + 1}), retrying in ${Math.round(delay)}ms...`, error.message);
+            await sleep(delay);
+        }
+    }
+
+    throw lastError;
+};
+
 // Function to format transactions concisely for the prompt
 const formatTransactionsForPrompt = (transactions = []) => {
     if (!transactions || transactions.length === 0) {
@@ -33,18 +82,20 @@ const formatAccountsForPrompt = (accounts = []) => {
 export const extractTransactionsFromDocument = async (base64Image, isStatementImage = true) => {
     try {
         console.log("[Gemini Service LOG] Processing document for transaction extraction");
-        // Stronger prompt for extracting ALL transactions
+
         const prompt = isStatementImage
-            ? `Extract every transaction from this bank statement image. For each row in the statement's transaction table, extract the date, description, amount, and category (if available). Output a JSON array, where each element is an object with 'date', 'description', 'amount' (as a number), and 'category'. Do not summarize or skip any transactions. Only output the JSON array, nothing else.`
-            : `Extract all transaction details from this receipt image. For each transaction, extract the date, merchant name, total amount, and category if available. Output a JSON array, where each element is an object with 'date', 'description', 'amount' (as a number), and 'category'. Only output the JSON array, nothing else.`;
+            ? `Extract every transaction from this bank statement image. For each row in the statement's transaction table, extract the date, description, amount, currency, and category (if available). Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string). Do not summarize or skip any transactions. Only output the JSON array, nothing else.`
+            : `Extract all transaction details from this receipt image. For each transaction, extract the date, merchant name (as description), total amount, currency, and category if available. Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string). Only output the JSON array, nothing else.`;
 
-        // Call the model with the image (model 2.0-flash supports vision)
-        const result = await model.generateContent([
-            { text: prompt },
-            { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
-        ]);
+        // Call the model with retry logic
+        const response = await retryWithBackoff(async () => {
+            const result = await model.generateContent([
+                { text: prompt },
+                { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
+            ]);
+            return await result.response;
+        }, 'Document extraction');
 
-        const response = await result.response;
         const extractedText = response.text();
 
         // Log the raw Gemini response for debugging
@@ -72,19 +123,62 @@ export const extractTransactionsFromDocument = async (base64Image, isStatementIm
             return {
                 success: false,
                 transactions: [],
-                rawResponse: extractedText
+                rawResponse: extractedText,
+                error: {
+                    type: 'parse_error',
+                    message: 'Could not parse the response as valid transaction data',
+                    retryable: false
+                }
             };
         }
     } catch (error) {
         console.error('Error extracting transactions from document:', error);
-        throw error;
+
+        // Categorize the error and return structured response
+        let errorType = 'unknown_error';
+        let userMessage = 'An unexpected error occurred while processing your document.';
+        let retryable = false;
+
+        if (error.message) {
+            if (error.message.includes('[503]') || error.message.includes('overloaded')) {
+                errorType = 'service_unavailable';
+                userMessage = 'The AI service is temporarily overloaded. Please try again in a few moments.';
+                retryable = true;
+            } else if (error.message.includes('[429]') || error.message.includes('rate limit') || error.message.includes('quota exceeded')) {
+                errorType = 'rate_limit';
+                userMessage = 'We\'ve hit the API rate limit. Please wait a moment and try again.';
+                retryable = true;
+            } else if (error.message.includes('API key') || error.message.includes('authentication')) {
+                errorType = 'auth_error';
+                userMessage = 'There\'s an issue with the AI service configuration. Please contact support.';
+                retryable = false;
+            } else if (error.message.includes('network') || error.message.includes('fetch')) {
+                errorType = 'network_error';
+                userMessage = 'Network connection issue. Please check your internet connection and try again.';
+                retryable = true;
+            }
+        }
+
+        return {
+            success: false,
+            transactions: [],
+            error: {
+                type: errorType,
+                message: userMessage,
+                retryable: retryable,
+                originalError: error.message
+            }
+        };
     }
 };
 
 export const generateResponse = async (prompt) => {
     try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
+        const response = await retryWithBackoff(async () => {
+            const result = await model.generateContent(prompt);
+            return await result.response;
+        }, 'Text generation');
+
         return response.text();
     } catch (error) {
         console.error('Error generating response:', error);
@@ -107,7 +201,7 @@ export const generateChatResponse = async (
         console.log("[Gemini Service LOG] Received Transactions Count:", transactions?.length);
         console.log("[Gemini Service LOG] Received Accounts Count:", accounts?.length);
 
-        const userName = userProfile?.name || 'User';
+        const userName = userProfile?.name || 'Dear';
         const { weeklyTotals = [], totalSpent = 0, topCategories = [], largestTransaction = null } = transactionSummary || {};
         const today = new Date().toLocaleDateString();
 
@@ -184,10 +278,13 @@ ${transactionsJson}
             historyForChatApi.shift();
         }
 
-        // Start chat and send the message with context
-        const chat = model.startChat({ history: historyForChatApi });
-        const result = await chat.sendMessage(userMessageWithContext.parts[0].text);
-        const response = await result.response;
+        // Start chat and send the message with context using retry logic
+        const response = await retryWithBackoff(async () => {
+            const chat = model.startChat({ history: historyForChatApi });
+            const result = await chat.sendMessage(userMessageWithContext.parts[0].text);
+            return await result.response;
+        }, 'Chat response generation');
+
         return response.text();
     } catch (error) {
         console.error('[Gemini Service LOG] Error in generateChatResponse:', error);

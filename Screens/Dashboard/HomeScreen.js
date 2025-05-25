@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator, TextInput } from "react-native";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, ActivityIndicator, TextInput, RefreshControl } from "react-native";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS, CATEGORY_ICONS } from "../../constants/theme";
 import MainCard from "../../Components/CategoryCards/MainCard";
@@ -47,6 +47,14 @@ const HomeScreen = ({ navigation }) => {
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
     const [mainCardsData, setMainCardsData] = useState([]);
+    const mainCardsRef = useRef([]);
+    const [refreshing, setRefreshing] = useState(false);
+
+    // Update ref when state changes
+    useEffect(() => {
+        mainCardsRef.current = mainCardsData;
+    }, [mainCardsData]);
+
     const [categoriesData, setCategoriesData] = useState([]);
     const [accountsLoading, setAccountsLoading] = useState(true);
     const [categoriesLoading, setCategoriesLoading] = useState(true);
@@ -67,6 +75,20 @@ const HomeScreen = ({ navigation }) => {
 
     // Helper to get user
     const getUser = () => auth.currentUser;
+
+    // Function to format account balances for display
+    // Note: Account balances are already calculated and stored in Firebase
+    // when transactions are added, so we don't need to recalculate them here
+    const formatAccountsForDisplay = useCallback((accounts) => {
+        // Simply return accounts with their existing balances
+        // The balances are already up-to-date from Firebase
+        return accounts.map(account => ({
+            ...account,
+            calculatedBalance: account.currentBalance || 0,
+            calculatedIncome: account.totalIncome || 0,
+            calculatedExpenses: account.totalExpenses || 0
+        }));
+    }, []);
 
     // --- ACCOUNTS ---
     useEffect(() => {
@@ -108,7 +130,8 @@ const HomeScreen = ({ navigation }) => {
                                 amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
                                 amountColor: data.amountColor || "white",
                                 Frame: require("../../assets/card-animation1.png"),
-                                extraField: []
+                                extraField: [],
+                                currentBalance: data.currentBalance ?? 0
                             };
                         case 'income_tracker':
                             return {
@@ -119,7 +142,10 @@ const HomeScreen = ({ navigation }) => {
                                 extraField: [
                                     { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
                                     { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
-                                ]
+                                ],
+                                currentBalance: data.currentBalance ?? 0,
+                                totalIncome: data.totalIncome ?? 0,
+                                totalExpenses: data.totalExpenses ?? 0
                             };
                         case 'savings_goal':
                             const progress = data.savingGoalTarget > 0
@@ -133,7 +159,9 @@ const HomeScreen = ({ navigation }) => {
                                 extraField: [
                                     { label: "Goal", value: `$${(data.savingGoalTarget ?? 0).toFixed(2)}`, color: "#FDB347" },
                                     { label: "Progress", value: `${progress.toFixed(0)}%`, color: progress >= 100 ? "lightgreen" : "#FDB347" }
-                                ]
+                                ],
+                                currentBalance: data.currentBalance ?? 0,
+                                savingGoalTarget: data.savingGoalTarget ?? 0
                             };
                         default:
                             return {
@@ -141,7 +169,8 @@ const HomeScreen = ({ navigation }) => {
                                 amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
                                 amountColor: "white",
                                 Frame: require("../../assets/card-animation1.png"),
-                                extraField: []
+                                extraField: [],
+                                currentBalance: data.currentBalance ?? 0
                             };
                     }
                 });
@@ -225,6 +254,9 @@ const HomeScreen = ({ navigation }) => {
                 }));
                 setTransactions(txns);
                 AsyncStorage.setItem(cacheKey, JSON.stringify(txns)).catch(() => { });
+
+                // No need to recalculate balances here since they're already updated in Firebase
+                // when transactions are added. The account balances are already correct.
             }, (error) => {
                 console.error("Error fetching transactions:", error);
             });
@@ -591,6 +623,133 @@ const HomeScreen = ({ navigation }) => {
         };
     }, []);
 
+    // Pull-to-refresh handler
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+
+        const user = getUser();
+        if (user) {
+            // Refresh all data
+            try {
+                // Load accounts
+                const accountsRef = collection(firestore, "users", user.uid, "accounts");
+                const accountsSnapshot = await getDocs(accountsRef);
+                const accounts = accountsSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Common account data regardless of type
+                    const accountData = {
+                        id: doc.id,
+                        title: data.title,
+                        backgroundColor: data.backgroundColor || "#012249",
+                        type: data.type,
+                        description: "See details"
+                    };
+
+                    // Different account types have different display formats
+                    switch (data.type) {
+                        case 'balance':
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "white",
+                                Frame: require("../../assets/card-animation1.png"),
+                                extraField: [],
+                                currentBalance: data.currentBalance ?? 0
+                            };
+                        case 'income_tracker':
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "lightgreen",
+                                Frame: require("../../assets/guy-animation.png"),
+                                extraField: [
+                                    { label: "Total Income", value: `$${(data.totalIncome ?? 0).toFixed(2)}`, color: "lightgreen" },
+                                    { label: "Total Expenses", value: `$${(data.totalExpenses ?? 0).toFixed(2)}`, color: "#FF7C7C" }
+                                ],
+                                currentBalance: data.currentBalance ?? 0,
+                                totalIncome: data.totalIncome ?? 0,
+                                totalExpenses: data.totalExpenses ?? 0
+                            };
+                        case 'savings_goal':
+                            const progress = data.savingGoalTarget > 0
+                                ? Math.min(100, ((data.currentBalance ?? 0) / data.savingGoalTarget) * 100)
+                                : 0;
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: data.amountColor || "white",
+                                Frame: require("../../assets/money-animation.png"),
+                                extraField: [
+                                    { label: "Goal", value: `$${(data.savingGoalTarget ?? 0).toFixed(2)}`, color: "#FDB347" },
+                                    { label: "Progress", value: `${progress.toFixed(0)}%`, color: progress >= 100 ? "lightgreen" : "#FDB347" }
+                                ],
+                                currentBalance: data.currentBalance ?? 0,
+                                savingGoalTarget: data.savingGoalTarget ?? 0
+                            };
+                        default:
+                            return {
+                                ...accountData,
+                                amount: `$${(data.currentBalance ?? 0).toFixed(2)}`,
+                                amountColor: "white",
+                                Frame: require("../../assets/card-animation1.png"),
+                                extraField: [],
+                                currentBalance: data.currentBalance ?? 0
+                            };
+                    }
+                });
+                setMainCardsData(accounts);
+
+                // Load categories
+                const categoriesRef = collection(firestore, "users", user.uid, "categories");
+                const categoriesSnapshot = await getDocs(categoriesRef);
+                const fetchedCategories = categoriesSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return {
+                        id: doc.id,
+                        Category: data.name,
+                        backgroundColor: data.backgroundColor || COLORS.primary,
+                        iconName: data.iconName || 'help-circle-outline',
+                        name: data.name,
+                    };
+                });
+                setRawCategories(fetchedCategories);
+
+                // Load transactions
+                const transactionsRef = collection(firestore, "users", user.uid, "transactions");
+                const transactionsSnapshot = await getDocs(transactionsRef);
+                const txns = transactionsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                setTransactions(txns);
+
+                // Load friends
+                const friendsRef = collection(firestore, "users", user.uid, "friends");
+                const friendsSnapshot = await getDocs(friendsRef);
+                const fetchedFriends = friendsSnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                setFriends(fetchedFriends);
+
+                // Load user data
+                const userDoc = await getDoc(doc(firestore, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    setUserData({
+                        name: data.name || '',
+                        surname: data.surname || '',
+                        avatar: data.avatar ? { uri: data.avatar } : Images.profilePic
+                    });
+                }
+            } catch (error) {
+                console.error("Error refreshing data:", error);
+            }
+        }
+
+        setRefreshing(false);
+    }, []);
+
     return (
         <ScreenWrapper backgroundColor={COLORS.appBackground}>
             <View style={styles.container}>
@@ -616,7 +775,19 @@ const HomeScreen = ({ navigation }) => {
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+                <ScrollView
+                    style={styles.scrollContainer}
+                    showsVerticalScrollIndicator={false}
+                    nestedScrollEnabled
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={[COLORS.primary]}
+                            tintColor={COLORS.primary}
+                        />
+                    }
+                >
                     {renderMainCards()}
                     {renderFriendsSection()}
                     {renderSubCards()}
