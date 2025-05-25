@@ -46,7 +46,7 @@ BudgetWise is a mobile application designed to help users manage their finances 
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/tariqahmaad/BudgetWise
     cd budgetwise
     ```
 
