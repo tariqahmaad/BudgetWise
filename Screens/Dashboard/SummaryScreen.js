@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Dimensions,
   TouchableOpacity,
-  FlatList, // <-- Add FlatList
+  FlatList,
 } from "react-native";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
@@ -21,8 +21,8 @@ import {
   where,
 } from "../../firebase/firebaseConfig";
 import { PieChart } from "react-native-chart-kit";
-import { Ionicons } from "@expo/vector-icons"; // <-- Add Ionicons
-import { CATEGORY_ICONS } from "../../constants/theme"; // Import CATEGORY_ICONS from theme.js
+import { Ionicons } from "@expo/vector-icons"; 
+import { CATEGORY_ICONS } from "../../constants/theme"; 
 
 const MOCK_CHART_COLORS = [
   "#FF6384",
@@ -252,45 +252,50 @@ const SummaryScreen = () => {
     return !isNaN(dateObj) ? dateObj.toLocaleString() : "Invalid Date"; // Changed to toLocaleString
   };
 
-  const renderTransactionItem = ({ item }) => (
-    <View style={styles.transactionCardItem}>
-      <View style={styles.transactionLeft}>
-        <View
-          style={[
-            styles.transactionIconContainer,
-            {
-              backgroundColor:
-                MOCK_CHART_COLORS[
-                  Math.floor(Math.random() * MOCK_CHART_COLORS.length)
-                ] + "33",
-            },
-          ]}
-        >
-          <Ionicons
-            name={CATEGORY_ICON_MAP[item.category] || "help-circle-outline"}
-            size={30}
-            color={COLORS.text}
-          />
+  const renderTransactionItem = ({ item }) => {
+    // Find the color for this category from chartData
+    const categoryData = chartData.find(
+      (chart) => chart.name === item.category
+    );
+    const categoryColor = categoryData ? categoryData.color : COLORS.primary;
+
+    return (
+      <View style={styles.transactionCardItem}>
+        <View style={styles.transactionLeft}>
+          <View
+            style={[
+              styles.transactionIconContainer,
+              {
+                backgroundColor: hexToRgba(categoryColor, 0.2), // Use category color with 20% opacity
+              },
+            ]}
+          >
+            <Ionicons
+              name={CATEGORY_ICON_MAP[item.category] || "help-circle-outline"}
+              size={30}
+              color={COLORS.text}
+            />
+          </View>
+          <View style={styles.transactionDetails}>
+            <Text style={styles.transactionDescription} numberOfLines={1}>
+              {item.description || "No Description"}
+            </Text>
+            <Text style={styles.transactionCategoryName}>
+              {item.category || "Uncategorized"}
+            </Text>
+            <Text style={styles.transactionDateText}>
+              {getTransactionDateString(item.date)}
+            </Text>
+          </View>
         </View>
-        <View style={styles.transactionDetails}>
-          <Text style={styles.transactionDescription} numberOfLines={1}>
-            {item.description || "No Description"}
-          </Text>
-          <Text style={styles.transactionCategoryName}>
-            {item.category || "Uncategorized"}
-          </Text>
-          <Text style={styles.transactionDateText}>
-            {getTransactionDateString(item.date)}
+        <View style={styles.transactionAmountContainer}>
+          <Text style={styles.transactionAmountValue}>
+            ${parseFloat(item.amount).toFixed(2)}
           </Text>
         </View>
       </View>
-      <View style={styles.transactionAmountContainer}>
-        <Text style={styles.transactionAmountValue}>
-          ${parseFloat(item.amount).toFixed(2)}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   const goToPreviousMonth = () => {
     setCurrentDisplayMonth(
