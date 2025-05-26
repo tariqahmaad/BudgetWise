@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react"; // Added useMemo
 import {
   ScrollView,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Dimensions,
   TouchableOpacity,
+  FlatList, // <-- Add FlatList
 } from "react-native";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS } from "../../constants/theme";
@@ -20,6 +21,8 @@ import {
   where,
 } from "../../firebase/firebaseConfig";
 import { PieChart } from "react-native-chart-kit";
+import { Ionicons } from "@expo/vector-icons"; // <-- Add Ionicons
+import { CATEGORY_ICONS } from "../../constants/theme"; // Import CATEGORY_ICONS from theme.js
 
 const MOCK_CHART_COLORS = [
   "#FF6384",
@@ -53,6 +56,12 @@ const hexToRgba = (hex, opacity) => {
 
 const screenWidth = Dimensions.get("window").width;
 
+// Dynamically create CATEGORY_ICON_MAP
+const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
+  map[category.label] = category.name;
+  return map;
+}, {});
+
 const isSameMonth = (date1, date2) =>
   date1 instanceof Date &&
   !isNaN(date1) &&
@@ -65,13 +74,15 @@ const SummaryScreen = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [categorizedTransactions, setCategorizedTransactions] = useState({});
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(null); // Default to null to show total expenses
   const [currentDisplayMonth, setCurrentDisplayMonth] = useState(new Date());
+  const [allMonthlyExpenses, setAllMonthlyExpenses] = useState([]);
 
   useEffect(() => {
     if (!user || !user.uid) {
       setLoading(false);
       setCategorizedTransactions({});
+      setAllMonthlyExpenses([]); // <-- Reset on user change
       return;
     }
 
@@ -101,7 +112,11 @@ const SummaryScreen = () => {
             if (t.date && typeof t.date.toDate === "function") {
               tDate = t.date.toDate();
             } else if (t.date) {
-              tDate = new Date(t.date);
+              // Attempt to parse if it's a string or number, assuming it's a valid date representation
+              const parsedDate = new Date(t.date);
+              if (!isNaN(parsedDate)) {
+                tDate = parsedDate;
+              }
             }
             return (
               tDate instanceof Date &&
@@ -110,6 +125,7 @@ const SummaryScreen = () => {
             );
           }
         );
+        setAllMonthlyExpenses(transactionsForSelectedMonth); // <-- Populate monthly expenses
 
         const grouped = {};
         transactionsForSelectedMonth.forEach((transaction) => {
@@ -128,45 +144,153 @@ const SummaryScreen = () => {
       (error) => {
         console.error("Error fetching transactions:", error);
         setLoading(false);
+        setAllMonthlyExpenses([]); // <-- Reset on error
       }
     );
 
     return () => unsubscribe();
   }, [user, currentDisplayMonth]);
 
-  const totalAmount = Object.values(categorizedTransactions).reduce(
-    (sum, grp) => sum + (grp.total || 0),
-    0
-  );
+  const totalAmount = useMemo(() => {
+    return Object.values(categorizedTransactions).reduce(
+      (sum, grp) => sum + (grp.total || 0),
+      0
+    );
+  }, [categorizedTransactions]);
 
-  const chartData = Object.entries(categorizedTransactions)
-    .map(([cat, data], i) => ({
-      name: cat,
-      population: parseFloat(data.total.toFixed(2)),
-      color: MOCK_CHART_COLORS[i % MOCK_CHART_COLORS.length],
-      legendFontColor: COLORS.text,
-      legendFontSize: 14,
-    }))
-    .sort((a, b) => b.population - a.population);
+  const chartData = useMemo(() => {
+    return Object.entries(categorizedTransactions)
+      .map(([cat, data], i) => ({
+        name: cat,
+        population: parseFloat(data.total.toFixed(2)),
+        color: MOCK_CHART_COLORS[i % MOCK_CHART_COLORS.length],
+        legendFontColor: COLORS.text,
+        legendFontSize: 14,
+      }))
+      .sort((a, b) => b.population - a.population);
+  }, [categorizedTransactions]);
 
-  let displayIndex = selectedIndex;
-  if (displayIndex === null && chartData.length > 0 && totalAmount > 0) {
-    displayIndex = 0;
-  }
+  const displayIndex = useMemo(() => {
+    if (selectedIndex !== null) {
+      return selectedIndex;
+    }
+    if (chartData.length > 0 && totalAmount > 0) {
+      return null; // Default to showing total expenses
+    }
+    return null;
+  }, [selectedIndex, chartData, totalAmount]);
 
-  const centerPercentage =
-    displayIndex !== null && totalAmount > 0 && chartData[displayIndex]
-      ? ((chartData[displayIndex].population / totalAmount) * 100).toFixed(1) +
+  const centerPercentage = useMemo(() => {
+    if (displayIndex !== null && totalAmount > 0 && chartData[displayIndex]) {
+      return (
+        ((chartData[displayIndex].population / totalAmount) * 100).toFixed(1) +
         "%"
-      : "";
-  const centerCategory =
-    displayIndex !== null && chartData[displayIndex]
-      ? chartData[displayIndex].name
-      : "";
-  const centerAmount =
-    displayIndex !== null && totalAmount > 0 && chartData[displayIndex]
-      ? `$${chartData[displayIndex].population.toFixed(2)}`
-      : "";
+      );
+    }
+    if (totalAmount > 0) {
+      return "100%"; // Show 100% for total expenses
+    }
+    return "";
+  }, [displayIndex, chartData, totalAmount]);
+
+  const centerCategory = useMemo(() => {
+    if (displayIndex !== null && chartData[displayIndex]) {
+      return chartData[displayIndex].name;
+    }
+    return "Total Expenses"; // Default to "Total Expenses"
+  }, [displayIndex, chartData]);
+
+  const centerAmount = useMemo(() => {
+    if (displayIndex !== null && totalAmount > 0 && chartData[displayIndex]) {
+      return `$${chartData[displayIndex].population.toFixed(2)}`;
+    }
+    if (totalAmount > 0) {
+      return `$${totalAmount.toFixed(2)}`; // Show total expenses amount
+    }
+    return "";
+  }, [displayIndex, chartData, totalAmount]);
+
+  const displayedTransactionsList = useMemo(() => {
+    if (!allMonthlyExpenses) return [];
+
+    let transactionsToDisplay = [...allMonthlyExpenses];
+
+    if (selectedIndex !== null && chartData[selectedIndex]) {
+      const selectedCategory = chartData[selectedIndex].name;
+      transactionsToDisplay = transactionsToDisplay.filter(
+        (t) => t.category === selectedCategory
+      );
+    }
+
+    return transactionsToDisplay.sort((a, b) => {
+      const dateA =
+        a.date && typeof a.date.toDate === "function"
+          ? a.date.toDate()
+          : a.date
+          ? new Date(a.date)
+          : new Date(0);
+      const dateB =
+        b.date && typeof b.date.toDate === "function"
+          ? b.date.toDate()
+          : b.date
+          ? new Date(b.date)
+          : new Date(0);
+      return dateB - dateA;
+    });
+  }, [allMonthlyExpenses, selectedIndex, chartData]);
+
+  const getTransactionDateString = (dateField) => {
+    if (!dateField) return "No Date";
+    let dateObj;
+    if (typeof dateField.toDate === "function") {
+      dateObj = dateField.toDate();
+    } else if (dateField instanceof Date) {
+      dateObj = dateField;
+    } else {
+      dateObj = new Date(dateField);
+    }
+    return !isNaN(dateObj) ? dateObj.toLocaleString() : "Invalid Date"; // Changed to toLocaleString
+  };
+
+  const renderTransactionItem = ({ item }) => (
+    <View style={styles.transactionCardItem}>
+      <View style={styles.transactionLeft}>
+        <View
+          style={[
+            styles.transactionIconContainer,
+            {
+              backgroundColor:
+                MOCK_CHART_COLORS[
+                  Math.floor(Math.random() * MOCK_CHART_COLORS.length)
+                ] + "33",
+            },
+          ]}
+        >
+          <Ionicons
+            name={CATEGORY_ICON_MAP[item.category] || "help-circle-outline"}
+            size={30}
+            color={COLORS.text}
+          />
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={styles.transactionDescription} numberOfLines={1}>
+            {item.description || "No Description"}
+          </Text>
+          <Text style={styles.transactionCategoryName}>
+            {item.category || "Uncategorized"}
+          </Text>
+          <Text style={styles.transactionDateText}>
+            {getTransactionDateString(item.date)}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.transactionAmountContainer}>
+        <Text style={styles.transactionAmountValue}>
+          ${parseFloat(item.amount).toFixed(2)}
+        </Text>
+      </View>
+    </View>
+  );
 
   const goToPreviousMonth = () => {
     setCurrentDisplayMonth(
@@ -215,14 +339,6 @@ const SummaryScreen = () => {
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* <Text style={styles.sectionTitle}>
-          Category Chart (
-          {currentDisplayMonth.toLocaleString("default", {
-            month: "short",
-            year: "numeric",
-          })}
-          )
-        </Text> */}
         {chartData.length > 0 && totalAmount > 0 ? (
           <View style={styles.chartWrapper}>
             <PieChart
@@ -242,6 +358,9 @@ const SummaryScreen = () => {
               absolute
               paddingLeft={(screenWidth - 40) * 0.25}
               style={styles.pieChartStyle}
+              onDataPointClick={({ index }) => {
+                setSelectedIndex(index === selectedIndex ? null : index);
+              }}
             />
             <View style={styles.centerOverlay}>
               <View style={styles.doughnutHole} />
@@ -305,6 +424,34 @@ const SummaryScreen = () => {
             ))}
           </View>
         )}
+
+        {allMonthlyExpenses.length > 0 && (
+          <View style={styles.transactionsSection}>
+            <Text style={styles.transactionsTitle}>
+              {selectedIndex !== null && chartData[selectedIndex]
+                ? `Transactions for ${chartData[selectedIndex].name}`
+                : "Monthly Transactions"}
+            </Text>
+            <View style={styles.separator} />
+            {displayedTransactionsList.length > 0 ? (
+              <FlatList
+                data={displayedTransactionsList}
+                renderItem={renderTransactionItem}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false} // Important if FlatList is inside ScrollView
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />} // Adds space between card items
+              />
+            ) : (
+              <Text style={styles.emptyTransactionsText}>
+                {
+                  selectedIndex !== null && chartData[selectedIndex]
+                    ? `No transactions found for ${chartData[selectedIndex].name} this month.`
+                    : "No transactions found for this month." // This case might not be hit if allMonthlyExpenses.length > 0
+                }
+              </Text>
+            )}
+          </View>
+        )}
       </ScrollView>
       <NavigationBar />
     </ScreenWrapper>
@@ -316,7 +463,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center", // Note: justifyContent is duplicated, consider removing one
     paddingHorizontal: 20,
     paddingTop: 20,
     backgroundColor: COLORS.appBackground,
@@ -408,7 +555,7 @@ const styles = StyleSheet.create({
   centerAmountText: {
     fontSize: 18,
     fontFamily: "Poppins-SemiBold",
-    color: COLORS.primary,
+    // color: COLORS.primary, // Color is now dynamic
     marginTop: -10,
   },
   centerCategoryText: {
@@ -420,7 +567,7 @@ const styles = StyleSheet.create({
   legendContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center", // Changed from space-around for a more natural flow
+    justifyContent: "center",
     paddingHorizontal: 5,
   },
   legendItem: {
@@ -433,7 +580,6 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: COLORS.lightGray,
-    // minWidth: "45%", // Removed to allow button to size based on content
   },
   selectedLegendItem: {
     backgroundColor: hexToRgba(COLORS.primary, 0.1),
@@ -449,15 +595,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
     fontFamily: "Poppins-Medium",
-    // flexShrink: 1, // Removed
-    // flex: 1, // Removed
-  },
-  legendAmount: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontFamily: "Poppins-SemiBold",
-    marginLeft: "auto",
-    paddingLeft: 5,
   },
   emptyChartContainer: {
     height: 220,
@@ -471,6 +608,98 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textSecondary,
     fontFamily: "Poppins-Regular",
+  },
+  transactionsSection: {
+    marginTop: 20,
+    // Removed background color and padding from section, will be on cards
+    // backgroundColor: COLORS.cardBackground,
+    // borderRadius: 10,
+    // padding: 15,
+  },
+  transactionsTitle: {
+    fontSize: 18,
+    fontFamily: "Poppins-SemiBold",
+    color: COLORS.text,
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 5, // Added padding if section bg is removed
+  },
+  separator: {
+    height: 1,
+    backgroundColor: COLORS.lightGray,
+    marginBottom: 15, // Increased space after separator
+    marginHorizontal: 5, // Added padding if section bg is removed
+  },
+  // Styles for transaction items, adapted from HomeScreen
+  transactionCardItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: COLORS.white, // Using cardBackground from theme
+    padding: 12,
+    borderRadius: 12,
+    // marginBottom: 10, // Replaced by ItemSeparatorComponent in FlatList
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  transactionLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1, // Allow text to take available space
+    marginRight: 10, // Space between left block and amount
+  },
+  transactionIconContainer: {
+    width: 50, // Adjusted size
+    height: 50, // Adjusted size
+    borderRadius: 25, // Half of width/height
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  transactionDetails: {
+    flex: 1, // Allow text to shrink/grow
+    justifyContent: "center",
+  },
+  transactionDescription: {
+    // Was transactionName in HomeScreen
+    fontSize: 15, // Adjusted from 16
+    fontFamily: "Poppins-Medium",
+    color: COLORS.text,
+    marginBottom: 2,
+  },
+  transactionCategoryName: {
+    // Was transactionCategory in HomeScreen
+    fontSize: 12,
+    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  transactionDateText: {
+    // New style for date, similar to HomeScreen's inline style
+    fontSize: 11, // Adjusted from 12
+    fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
+  },
+  transactionAmountContainer: {
+    alignItems: "flex-end",
+  },
+  transactionAmountValue: {
+    fontSize: 15,
+    fontFamily: "Poppins-SemiBold",
+    color: "#FF3B30", // Red color for transaction amounts
+  },
+  emptyTransactionsText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontFamily: "Poppins-Regular",
+    textAlign: "center",
+    paddingVertical: 20,
   },
 });
 
