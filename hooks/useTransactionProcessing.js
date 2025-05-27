@@ -61,15 +61,35 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
         }
     }, []);
 
-    // Function to infer category using Gemini if missing
+    // Function to infer category using Gemini, but only from predefined categories
     const inferCategoryWithGemini = useCallback(async (description) => {
         if (!description) return 'Uncategorized';
+
+        // Get the list of predefined category labels
+        const predefinedCategories = CATEGORY_ICONS.map(cat => cat.label);
+        const categoriesString = predefinedCategories.join(', ');
+
         try {
-            const prompt = `Given the transaction description: '${description}', what is the most likely spending category? Respond with a single word or short phrase.`;
+            const prompt = `Given the transaction description: '${description}', which of these predefined categories best matches? Choose ONLY from this list: ${categoriesString}. If none match well, respond with "Uncategorized". Respond with only the category name, nothing else.`;
             const result = await generateResponse(prompt);
-            // Take the first word/line as the category
-            return result.split('\n')[0].replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Uncategorized';
+
+            // Clean and normalize the result
+            const suggestedCategory = result.split('\n')[0].replace(/[^a-zA-Z0-9 &]/g, '').trim();
+
+            // Check if the suggested category exists in our predefined list (case-insensitive)
+            const matchedCategory = predefinedCategories.find(cat =>
+                cat.toLowerCase() === suggestedCategory.toLowerCase()
+            );
+
+            if (matchedCategory) {
+                console.log(`[AI Category] Matched predefined category: "${matchedCategory}" for description: "${description}"`);
+                return matchedCategory;
+            } else {
+                console.log(`[AI Category] No predefined match found for: "${suggestedCategory}", using Uncategorized`);
+                return 'Uncategorized';
+            }
         } catch (e) {
+            console.error('[AI Category] Error inferring category:', e);
             return 'Uncategorized';
         }
     }, [generateResponse]);
@@ -77,7 +97,7 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
     // Function to extract concise description keyword using Gemini
     const extractDescriptionKeywordWithGemini = useCallback(async (sentence) => {
         try {
-            const prompt = `Extract the main purchase item or keyword from this sentence: "${sentence}". Respond with only the keyword or short phrase.`;
+            const prompt = `Extract the main purchase item or keyword from this sentence: "${sentence}". Respond with only the keyword or short phrase, maximum 3-4 words.`;
             const result = await generateResponse(prompt);
             return result.split('\n')[0].replace(/[^a-zA-Z0-9 ]/g, '').trim();
         } catch (e) {
@@ -342,30 +362,44 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
         }
     }, [user, accounts, setIsProcessingDocument, setExtractedTransactions, parseTransactionDate, inferCategoryWithGemini, createCategoryIfNeeded]);
 
-    // Helper function to check if a category exists
+    // Enhanced helper function to check if a category exists with case-insensitive and trimmed matching
     const checkCategoryExists = useCallback(async (categoryName) => {
-        if (!user) return false;
+        if (!user || !categoryName) return { exists: false };
 
         try {
-            // Query both by name and by label to catch all possible matches
+            // Normalize the category name: trim whitespace and convert to lowercase for comparison
+            const normalizedCategoryName = categoryName.trim();
+            const lowerCaseCategoryName = normalizedCategoryName.toLowerCase();
+
             const categoriesRef = collection(firestore, "users", user.uid, "categories");
 
-            // Check by name field (primary field)
-            const nameQuery = query(categoriesRef, where("name", "==", categoryName));
-            const nameSnapshot = await getDocs(nameQuery);
+            // Get all categories for this user to perform comprehensive checking
+            const allCategoriesSnapshot = await getDocs(categoriesRef);
 
-            if (!nameSnapshot.empty) {
-                return { exists: true, doc: nameSnapshot.docs[0] };
+            // Check for any matching category using various field names and case-insensitive comparison
+            for (const categoryDoc of allCategoriesSnapshot.docs) {
+                const data = categoryDoc.data();
+
+                // Check multiple possible field names that might contain the category name
+                const fieldsToCheck = [
+                    data.name,
+                    data.label,
+                    data.Category,
+                    data.categoryName
+                ];
+
+                for (const fieldValue of fieldsToCheck) {
+                    if (fieldValue && typeof fieldValue === 'string') {
+                        const normalizedFieldValue = fieldValue.trim().toLowerCase();
+                        if (normalizedFieldValue === lowerCaseCategoryName) {
+                            console.log(`[Category Check] Found existing category: "${fieldValue}" matches "${categoryName}"`);
+                            return { exists: true, doc: categoryDoc, exactMatch: fieldValue };
+                        }
+                    }
+                }
             }
 
-            // Also check by label field (some categories might use this field)
-            const labelQuery = query(categoriesRef, where("label", "==", categoryName));
-            const labelSnapshot = await getDocs(labelQuery);
-
-            if (!labelSnapshot.empty) {
-                return { exists: true, doc: labelSnapshot.docs[0] };
-            }
-
+            console.log(`[Category Check] No existing category found for: "${categoryName}"`);
             return { exists: false };
         } catch (error) {
             console.error("Error checking category existence:", error);
@@ -373,48 +407,63 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
         }
     }, [user]);
 
-    // Function to create a new category if it doesn't exist
+    // Enhanced function to create a new category if it doesn't exist, but only for predefined categories
     const createCategoryIfNeeded = useCallback(async (categoryName) => {
-        if (!user) return null;
+        if (!user || !categoryName) return null;
 
         try {
-            // Check if category already exists
-            const { exists, doc } = await checkCategoryExists(categoryName);
+            // Normalize the category name by trimming whitespace
+            const normalizedCategoryName = categoryName.trim();
 
-            // If category exists, return its ID
+            if (!normalizedCategoryName) {
+                console.warn("[AI Tx] Category name is empty after trimming, skipping creation");
+                return null;
+            }
+
+            // Check if this category is in our predefined list (case-insensitive)
+            const predefinedCategory = CATEGORY_ICONS.find(cat =>
+                cat.label.toLowerCase() === normalizedCategoryName.toLowerCase()
+            );
+
+            if (!predefinedCategory) {
+                console.warn(`[AI Tx] Category "${normalizedCategoryName}" is not in predefined list, skipping creation`);
+                return null; // Don't create categories that aren't predefined
+            }
+
+            // Check if category already exists (case-insensitive)
+            const { exists, doc, exactMatch } = await checkCategoryExists(normalizedCategoryName);
+
+            // If category exists, return its ID and use the existing name format
             if (exists && doc) {
-                console.log("[AI Tx] Category already exists:", categoryName, "with ID:", doc.id);
+                console.log("[AI Tx] Category already exists:", exactMatch || normalizedCategoryName, "with ID:", doc.id);
                 return doc.id;
             }
 
-            // Find the matching category icon from theme (imported from constants/theme)
-            // First check if we can find a match in the predefined categories
-            const categoryMatch = CATEGORY_ICONS.find(cat =>
-                cat.label.toLowerCase() === categoryName.toLowerCase());
-
-            // Use matched icon or default to a generic icon
-            const iconName = categoryMatch?.name || 'pricetag-outline'; // Default if not found
+            // Use the exact predefined category data for consistency
+            const iconName = predefinedCategory.name;
             const backgroundColor = DEFAULT_CATEGORY_COLORS
                 ? DEFAULT_CATEGORY_COLORS[0].value
                 : '#4CAF50'; // Default green color
 
-            // Create the category data with a consistent structure
+            // Use the exact predefined label for consistency
+            const properCaseName = predefinedCategory.label;
+
             const categoryData = {
                 userId: user.uid,
-                name: categoryName,      // Primary identifier 
-                iconName: iconName,      // For rendering category icons
+                name: properCaseName,          // Primary identifier (use predefined label)
+                iconName: iconName,            // Use predefined icon
                 backgroundColor: backgroundColor, // For UI display
                 createdAt: serverTimestamp(),
-                label: categoryName,     // Some parts might look for this
-                Category: categoryName,  // For compatibility
-                amount: "$0.00",        // Initialize with zero amount
+                label: properCaseName,         // Some parts might look for this
+                Category: properCaseName,      // For compatibility with HomeScreen
+                amount: "$0.00",              // Initialize with zero amount
                 description: "Created by AI", // Default description
                 lastUpdated: serverTimestamp()
             };
 
             // Add the category to Firestore
             const docRef = await addDoc(collection(firestore, "users", user.uid, "categories"), categoryData);
-            console.log("[AI Tx] Created new category:", categoryName, "with ID:", docRef.id);
+            console.log("[AI Tx] Created new predefined category:", properCaseName, "with ID:", docRef.id);
 
             return docRef.id;
         } catch (error) {

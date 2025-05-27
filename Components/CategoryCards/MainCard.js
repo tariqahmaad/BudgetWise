@@ -119,83 +119,97 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
     zIndex: 2, // Ensure content is above the image
+    minHeight: cardHeight * 0.7, // Ensure minimum content height
   },
   contentSingle: {
-    maxWidth: '70%', // More space for single field cards
+    maxWidth: '65%', // Improved space allocation for single field cards
+    paddingRight: width * 0.02, // Add some padding to prevent overflow
   },
   contentWithExtra: {
-    maxWidth: '62%', // Constrained for multi-field cards
+    maxWidth: '58%', // More constrained for multi-field cards 
+    paddingRight: width * 0.02, // Add some padding to prevent overflow
   },
   mainContent: {
-    marginBottom: height * 0.01,
+    marginBottom: height * 0.006, // Reduced bottom margin
+    flex: 1, // Allow main content to take available space
+    justifyContent: 'flex-start', // Align content to top
   },
   title: {
-    fontSize: width * 0.04,
+    fontSize: Math.min(width * 0.042, 19), // Slightly increased for better balance
     color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: height * 0.005,
+    marginBottom: height * 0.012, // Reduced gap for cards with extra fields
     fontFamily: "Poppins-SemiBold",
+    lineHeight: Math.min(width * 0.042, 19) * 1.2, // Better line height
   },
   titleSingle: {
-    fontSize: width * 0.06,
+    fontSize: Math.min(width * 0.052, 22), // Slightly reduced to make amount more dominant
     color: "rgba(255, 255, 255, 0.8)",
     fontFamily: "Poppins-SemiBold",
     textAlign: "left", // Align title to the left
-    marginBottom: height * 0.01,
+    marginBottom: height * 0.005, // Reduced gap between title and amount
+    lineHeight: Math.min(width * 0.052, 22) * 1.2, // Better line height
   },
   amount: {
     fontFamily: "Poppins-Bold",
-    marginBottom: height * 0.005,
+    marginBottom: height * 0.003, // Reduced gap after amount
   },
   amountSingle: {
-    fontSize: width * 0.085, // Larger font for single field cards
+    fontSize: Math.min(width * 0.095, 42), // Increased font size for more dominance
     textAlign: "left", // Align the amount text to the left
-    marginVertical: height * 0.015, // Add vertical spacing
-
+    marginVertical: height * 0.008, // Reduced vertical spacing for better flow
+    lineHeight: Math.min(width * 0.095, 42) * 1.1, // Better line height
   },
   amountWithExtra: {
-    fontSize: width * 0.075, // Smaller font when extra fields are present
+    fontSize: Math.min(width * 0.08, 36), // Increased font size for better visibility
+    lineHeight: Math.min(width * 0.08, 36) * 1.1, // Better line height
   },
   description: {
-    fontSize: width * 0.035,
+    fontSize: Math.min(width * 0.035, 16), // Cap max font size
     color: "rgba(255, 255, 255, 0.7)",
     fontFamily: "Poppins-Medium",
+    lineHeight: Math.min(width * 0.035, 16) * 1.3, // Better line height
+    marginTop: height * 0.004, // Small gap between amount and description
   },
   descriptionSingle: {
-    fontSize: width * 0.035,
+    fontSize: Math.min(width * 0.035, 16), // Cap max font size
     color: "rgba(255, 255, 255, 0.7)",
     fontFamily: "Poppins-Medium",
     textAlign: "left", // Align description to the left
-    marginTop: height * 0.02, // Add top margin
-
+    marginTop: height * 0.008, // Further reduced gap between amount and description
+    lineHeight: Math.min(width * 0.035, 16) * 1.3, // Better line height
   },
   extraFieldsWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     width: '100%',
     marginTop: 'auto',
+    paddingTop: height * 0.01, // Add some padding to separate from main content
   },
   extraFieldContainer: {
     flexDirection: 'column',
     flex: 1,
-    marginRight: 8,
+    marginRight: width * 0.02, // Responsive margin
+    minWidth: 0, // Prevent overflow
   },
   extraLabel: {
-    fontSize: width * 0.028,
+    fontSize: Math.min(width * 0.028, 12), // Cap max font size
     color: "rgba(255, 255, 255, 0.7)",
     fontFamily: "Poppins-SemiBold",
+    lineHeight: Math.min(width * 0.028, 12) * 1.4, // Better line height
   },
   extraValue: {
-    fontSize: width * 0.048,
+    fontSize: Math.min(width * 0.052, 24), // Increased font size for better prominence
     fontFamily: "Poppins-Bold",
+    lineHeight: Math.min(width * 0.052, 24) * 1.2, // Better line height
   },
   image: {
     width: imageSize,
     height: imageSize,
     position: "absolute",
-    right: -width * 0.00,
-    top: height * 0.03,
+    right: -width * 0.05, // Slightly more offset to prevent overlap
+    top: height * 0.025, // Slightly adjusted top position
     resizeMode: "contain",
-    opacity: 0.9,
+    opacity: 0.85, // Slightly more transparent to reduce visual interference
     zIndex: 1,
   },
 });

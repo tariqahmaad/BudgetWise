@@ -711,24 +711,27 @@ const AIScreen = ({ navigation }) => {
 
                             {/* Conditionally render EITHER insights/chart view OR chat view, not both */}
                             {showChart ? (
-                                // Insights/Chart View
-                                <ChartComponent
-                                    isLoading={isLoading}
-                                    error={error}
-                                    chartData={chartData}
-                                    insightMessage={insightMessage}
-                                    insightOpacity={insightOpacity}
-                                    chartScale={chartScale}
-                                    chartSlideY={chartSlideY}
-                                    monthName={currentDisplayMonthName}
-                                    onRetry={handleRetry}
-                                >
-                                    {/* Passing SuggestionComponent as children */}
-                                    <SuggestionComponent
+                                // Insights/Chart View - Made Scrollable
+                                <View style={styles.chartViewContainer}>
+                                    <ChartComponent
+                                        isLoading={isLoading}
+                                        error={error}
+                                        chartData={chartData}
+                                        insightMessage={insightMessage}
+                                        insightOpacity={insightOpacity}
+                                        chartScale={chartScale}
+                                        chartSlideY={chartSlideY}
+                                        monthName={currentDisplayMonthName}
+                                        onRetry={handleRetry}
                                         suggestedQuestions={suggestedQuestions}
-                                        onSuggestionClick={handleSuggestionClick}
-                                    />
-                                </ChartComponent>
+                                    >
+                                        {/* Passing SuggestionComponent as children */}
+                                        <SuggestionComponent
+                                            suggestedQuestions={suggestedQuestions}
+                                            onSuggestionClick={handleSuggestionClick}
+                                        />
+                                    </ChartComponent>
+                                </View>
                             ) : (
                                 // Chat View
                                 <ChatComponent
@@ -814,8 +817,12 @@ const styles = StyleSheet.create({
         ...FONTS.h3,
         color: COLORS.textLight,
         textAlign: 'center',
-        flex: 1,
         marginHorizontal: SIZES.padding.small,
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        alignSelf: 'center',
+        fontSize: SIZES.font.xlarge,
     },
     headerSection: {
         paddingHorizontal: SIZES.padding.xlarge,
@@ -959,6 +966,10 @@ const styles = StyleSheet.create({
     retryButtonText: {
         ...FONTS.body3_bold,
         color: COLORS.white,
+    },
+    chartViewContainer: {
+        flex: 1,
+        backgroundColor: COLORS.appBackground,
     },
 
 });

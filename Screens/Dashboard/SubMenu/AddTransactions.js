@@ -37,6 +37,9 @@ const AddTransactions = ({ navigation }) => {
   const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [selectedAccountIndex, setSelectedAccountIndex] = useState(0);
 
+  // Loading state to prevent duplicate submissions
+  const [isSaving, setIsSaving] = useState(false);
+
   // Fetch user accounts
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -99,69 +102,107 @@ const AddTransactions = ({ navigation }) => {
     return dateObj.toLocaleDateString();
   };
 
-  // Helper function to check if a category exists
+  // Enhanced helper function to check if a category exists with case-insensitive matching
   const checkCategoryExists = async (categoryName) => {
     const user = auth.currentUser;
-    if (!user) return false;
+    if (!user || !categoryName) return false;
 
     try {
-      // Query both by name and by label to catch all possible matches
+      // Normalize the category name: trim whitespace and convert to lowercase for comparison
+      const normalizedCategoryName = categoryName.trim();
+      const lowerCaseCategoryName = normalizedCategoryName.toLowerCase();
+
       const categoriesRef = collection(firestore, "users", user.uid, "categories");
 
-      // Check by name field (primary field)
-      const nameQuery = query(categoriesRef, where("name", "==", categoryName));
-      const nameSnapshot = await getDocs(nameQuery);
+      // Get all categories for this user to perform comprehensive checking
+      const allCategoriesSnapshot = await getDocs(categoriesRef);
 
-      if (!nameSnapshot.empty) {
-        return true;
+      // Check for any matching category using various field names and case-insensitive comparison
+      for (const categoryDoc of allCategoriesSnapshot.docs) {
+        const data = categoryDoc.data();
+
+        // Check multiple possible field names that might contain the category name
+        const fieldsToCheck = [
+          data.name,
+          data.label,
+          data.Category,
+          data.categoryName
+        ];
+
+        for (const fieldValue of fieldsToCheck) {
+          if (fieldValue && typeof fieldValue === 'string') {
+            const normalizedFieldValue = fieldValue.trim().toLowerCase();
+            if (normalizedFieldValue === lowerCaseCategoryName) {
+              console.log(`[AddTx Category Check] Found existing category: "${fieldValue}" matches "${categoryName}"`);
+              return true;
+            }
+          }
+        }
       }
 
-      // Also check by label field (some categories might use this field)
-      const labelQuery = query(categoriesRef, where("label", "==", categoryName));
-      const labelSnapshot = await getDocs(labelQuery);
-
-      return !labelSnapshot.empty;
+      console.log(`[AddTx Category Check] No existing category found for: "${categoryName}"`);
+      return false;
     } catch (error) {
       console.error("Error checking category existence:", error);
-      return false;
+      return true; // Fail safe - assume duplicate on error to prevent creation
     }
   };
 
-  // Function to create a new category if it doesn't exist
+  // Enhanced function to create a new category if it doesn't exist, but only for predefined categories
   const createCategoryIfNeeded = async (categoryLabel) => {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user || !categoryLabel) return;
 
     try {
-      // Check if category already exists
-      const categoryExists = await checkCategoryExists(categoryLabel);
+      // Normalize the category name by trimming whitespace
+      const normalizedCategoryLabel = categoryLabel.trim();
+
+      if (!normalizedCategoryLabel) {
+        console.warn("[AddTx] Category name is empty after trimming, skipping creation");
+        return null;
+      }
+
+      // Check if this category is in our predefined list (case-insensitive)
+      const predefinedCategory = CATEGORY_ICONS.find(cat =>
+        cat.label.toLowerCase() === normalizedCategoryLabel.toLowerCase()
+      );
+
+      if (!predefinedCategory) {
+        console.warn(`[AddTx] Category "${normalizedCategoryLabel}" is not in predefined list, skipping creation`);
+        return null; // Don't create categories that aren't predefined
+      }
+
+      // Check if category already exists (case-insensitive)
+      const categoryExists = await checkCategoryExists(normalizedCategoryLabel);
       if (categoryExists) {
-        console.log("Category already exists:", categoryLabel);
+        console.log("[AddTx] Category already exists:", normalizedCategoryLabel);
         return; // Category already exists, no need to create
       }
 
-      // Find the matching category icon from theme
-      const categoryMatch = CATEGORY_ICONS.find(cat => cat.label === categoryLabel);
-      const iconName = categoryMatch?.name || 'help-circle-outline'; // Default if not found
+      // Use the exact predefined category data for consistency
+      const iconName = predefinedCategory.name;
       const backgroundColor = DEFAULT_CATEGORY_COLORS[0].value; // Use first default color
+
+      // Use the exact predefined label for consistency
+      const properCaseName = predefinedCategory.label;
 
       // Create the category data - matching the structure expected by HomeScreen.js
       const categoryData = {
         userId: user.uid,
-        name: categoryLabel,       // Primary identifier used in HomeScreen.js
-        iconName: iconName,        // Used in HomeScreen.js for rendering category icons
+        name: properCaseName,          // Primary identifier (use predefined label)
+        iconName: iconName,            // Use predefined icon
         backgroundColor: backgroundColor, // Used for SubCard background color
         createdAt: serverTimestamp(),
         // Extra fields for compatibility with different parts of the app
-        label: categoryLabel,      // Some code might look for this
-        Category: categoryLabel,   // SubCard component expects this
-        amount: "$0.00",          // Initialize with zero amount
+        label: properCaseName,         // Some code might look for this
+        Category: properCaseName,      // SubCard component expects this
+        amount: "$0.00",              // Initialize with zero amount
         description: "No spending yet" // Default description
       };
 
       // Add the category to Firestore
       const docRef = await addDoc(collection(firestore, "users", user.uid, "categories"), categoryData);
-      console.log("Created new category:", categoryLabel, "with ID:", docRef.id);
+      console.log("[AddTx] Created new predefined category:", properCaseName, "with ID:", docRef.id);
 
       return docRef.id;
     } catch (error) {
@@ -171,22 +212,33 @@ const AddTransactions = ({ navigation }) => {
   };
 
   const handleSaveTransaction = async () => {
+    // Prevent multiple submissions
+    if (isSaving) {
+      console.log("Transaction save already in progress, ignoring duplicate request");
+      return;
+    }
+
     try {
+      setIsSaving(true);
+
       const user = auth.currentUser;
       if (!user) {
         console.log("No user logged in");
+        setIsSaving(false);
         return;
       }
 
       const amountValue = parseFloat(amount);
       if (isNaN(amountValue) || amountValue <= 0) {
         alert("Please enter a valid amount");
+        setIsSaving(false);
         return;
       }
 
       // Validate account selection
       if (!selectedAccountId) {
         alert("Please select an account");
+        setIsSaving(false);
         return;
       }
 
@@ -292,6 +344,7 @@ const AddTransactions = ({ navigation }) => {
       }
 
       setShowNotification(true);
+      setIsSaving(false); // Reset loading state when showing success notification
       setTimeout(() => {
         setShowNotification(false);
         navigation.goBack();
@@ -299,6 +352,7 @@ const AddTransactions = ({ navigation }) => {
     } catch (error) {
       console.error("Error saving transaction:", error);
       alert("Failed to save transaction. Please try again.");
+      setIsSaving(false);
     }
   };
 
@@ -315,17 +369,25 @@ const AddTransactions = ({ navigation }) => {
           You may add your transactions here. Make sure to fill all fields as they improve your overall experience in our application
         </Text>
 
-        <ToggleSwitch onToggle={handleToggle} />
+        <View style={styles.toggleWrapper}>
+          <ToggleSwitch onToggle={handleToggle} disabled={isSaving} />
+        </View>
 
-        <ScrollView style={styles.formContainer}>
-          <InputField title="Amount" value={amount} onChangeText={setAmount} />
+        <ScrollView style={styles.formContainer} scrollEnabled={!isSaving}>
+          <InputField
+            title="Amount"
+            value={amount}
+            onChangeText={setAmount}
+            editable={!isSaving}
+          />
 
           <View style={styles.fieldWrapper}>
             <Text style={styles.fieldLabel}>Date</Text>
             <View style={styles.dateInputRow}>
               <TouchableOpacity
-                onPress={() => setShowDatePicker(true)}
+                onPress={isSaving ? undefined : () => setShowDatePicker(true)}
                 style={styles.datePickerTouchable}
+                disabled={isSaving}
               >
                 <Text style={styles.datePickerText}>{formatDate(date)}</Text>
               </TouchableOpacity>
@@ -346,7 +408,12 @@ const AddTransactions = ({ navigation }) => {
             />
           )}
 
-          <InputField title="Description" value={description} onChangeText={setDescription} />
+          <InputField
+            title="Description"
+            value={description}
+            onChangeText={setDescription}
+            editable={!isSaving}
+          />
 
           {/* Always show account selection first, regardless of transaction type */}
           <View style={styles.fieldWrapper}>
@@ -365,7 +432,8 @@ const AddTransactions = ({ navigation }) => {
                         styles.iconSliderItem,
                         selectedAccountIndex === index && styles.selectedIconItem
                       ]}
-                      onPress={() => handleAccountSelection(item.id, index)}
+                      onPress={isSaving ? undefined : () => handleAccountSelection(item.id, index)}
+                      disabled={isSaving}
                     >
                       <View style={[
                         styles.iconBubble,
@@ -402,7 +470,8 @@ const AddTransactions = ({ navigation }) => {
                         styles.iconSliderItem,
                         selectedCategoryIndex === index && styles.selectedIconItem
                       ]}
-                      onPress={() => handleCategorySelection(item.label, index)}
+                      onPress={isSaving ? undefined : () => handleCategorySelection(item.label, index)}
+                      disabled={isSaving}
                     >
                       <View style={[
                         styles.iconBubble,
@@ -425,7 +494,12 @@ const AddTransactions = ({ navigation }) => {
           )}
 
           <View style={styles.buttonWrapper}>
-            <CustomButton title="Save Transaction" onPress={handleSaveTransaction} />
+            <CustomButton
+              title="Save Transaction"
+              onPress={handleSaveTransaction}
+              loading={isSaving}
+              disabled={isSaving}
+            />
           </View>
         </ScrollView>
 
@@ -474,6 +548,10 @@ const styles = StyleSheet.create({
     marginHorizontal: SIZES.padding.xxxlarge,
     marginBottom: SIZES.padding.large,
     color: COLORS.textSecondary,
+  },
+  toggleWrapper: {
+    paddingHorizontal: SIZES.padding.large,
+    marginBottom: SIZES.padding.medium,
   },
   formContainer: {
     flex: 1,

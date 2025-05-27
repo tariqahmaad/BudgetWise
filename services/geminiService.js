@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import {GEMINI_API_KEY} from '@env';
+import { GEMINI_API_KEY } from '@env';
 
 // Initialize the Gemini API
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -84,9 +84,32 @@ export const extractTransactionsFromDocument = async (base64Image, isStatementIm
     try {
         console.log("[Gemini Service LOG] Processing document for transaction extraction");
 
+        // Define predefined categories that the app supports
+        const predefinedCategories = [
+            "Groceries", "Housing", "Transport", "Food", "Healthcare",
+            "Clothing", "Entertainment", "Utilities", "Education", "Gifts",
+            "Finance", "Travel", "Health & Fitness", "Gaming", "Books"
+        ];
+
         const prompt = isStatementImage
-            ? `Extract every transaction from this bank statement image. For each row in the statement's transaction table, extract the date, description, amount, currency, and category (if available). Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string). Do not summarize or skip any transactions. Only output the JSON array, nothing else.`
-            : `Extract all transaction details from this receipt image. For each transaction, extract the date, merchant name (as description), total amount, currency, and category if available. Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string). Only output the JSON array, nothing else.`;
+            ? `Extract every transaction from this bank statement image. For each row in the statement's transaction table, extract the date, description, amount, currency, and category.
+
+IMPORTANT CATEGORY RULES:
+- ONLY use these predefined categories: ${predefinedCategories.join(', ')}
+- If a transaction doesn't clearly fit any predefined category, use "Uncategorized"
+- Never create new category names - stick strictly to the predefined list
+- Map transaction descriptions to the closest matching predefined category
+
+Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string from predefined list only). Do not summarize or skip any transactions. Only output the JSON array, nothing else.`
+            : `Extract all transaction details from this receipt image. For each transaction, extract the date, merchant name (as description), total amount, currency, and category.
+
+IMPORTANT CATEGORY RULES:
+- ONLY use these predefined categories: ${predefinedCategories.join(', ')}
+- If a transaction doesn't clearly fit any predefined category, use "Uncategorized"
+- Never create new category names - stick strictly to the predefined list
+- Map transaction descriptions to the closest matching predefined category
+
+Output a JSON array, where each element is an object with 'date' (string, format YYYY-MM-DD, if ambiguous use current year), 'description' (string), 'amount' (number), 'currency' (string, e.g., "USD", "EUR", infer if not present), and 'category' (string from predefined list only). Only output the JSON array, nothing else.`;
 
         // Call the model with retry logic
         const response = await retryWithBackoff(async () => {
@@ -206,6 +229,13 @@ export const generateChatResponse = async (
         const { weeklyTotals = [], totalSpent = 0, topCategories = [], largestTransaction = null } = transactionSummary || {};
         const today = new Date().toLocaleDateString();
 
+        // Define predefined categories that the app supports
+        const predefinedCategories = [
+            "Groceries", "Housing", "Transport", "Food", "Healthcare",
+            "Clothing", "Entertainment", "Utilities", "Education", "Gifts",
+            "Finance", "Travel", "Health & Fitness", "Gaming", "Books"
+        ];
+
         // Format accounts and transactions as JSON for clarity
         const accountsJson = JSON.stringify(accounts, null, 2);
         // Limit to 30 most recent transactions
@@ -240,7 +270,15 @@ ${isFirstUserMessage ? `- Greet the user warmly and use their name if available 
 - Use markdown formatting for lists, code, and tables when appropriate.
 - Always follow the user's instructions as specifically as possible, unless they are unsafe or unclear.
 
+**IMPORTANT TRANSACTION RULES:**
+- When suggesting transactions, ONLY use these predefined categories: ${predefinedCategories.join(', ')}
+- If a transaction doesn't fit any predefined category, use "Uncategorized"
+- Never create new category names - stick strictly to the predefined list
+- When parsing user transaction requests, map their descriptions to the closest predefined category
+
 Today's date: ${today}
+
+Predefined Categories Available: ${predefinedCategories.join(', ')}
 
 User Profile:
 ${JSON.stringify(userProfile, null, 2)}

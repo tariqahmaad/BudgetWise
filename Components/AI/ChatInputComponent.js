@@ -1,7 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Platform, Animated, Text } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Platform, Animated, Text, Dimensions } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { COLORS, SIZES, FONTS } from '../../constants/theme';
+
+// Get device dimensions
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+
 
 // Smart input suggestions based on common patterns
 const getSmartSuggestions = (text) => {
@@ -36,9 +41,51 @@ const ChatInputComponent = React.memo(({
     const [isFocused, setIsFocused] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [smartSuggestions, setSmartSuggestions] = useState([]);
+    const [deviceDimensions, setDeviceDimensions] = useState({ width: screenWidth, height: screenHeight });
     const inputRef = useRef(null);
     const focusAnim = useRef(new Animated.Value(0)).current;
     const sendButtonScale = useRef(new Animated.Value(1)).current;
+
+    // Listen for device orientation changes
+    useEffect(() => {
+        const subscription = Dimensions.addEventListener('change', ({ window }) => {
+            setDeviceDimensions({ width: window.width, height: window.height });
+        });
+
+        return () => subscription?.remove();
+    }, []);
+
+    // Get responsive dimensions based on current device size
+    const getResponsiveDimensionsForDevice = () => {
+        const { width, height } = deviceDimensions;
+        const isTablet = width > 768;
+        const isLandscape = width > height;
+        const screenScale = Math.min(width / 375, 1.3); // Base scale on iPhone 11 width, max 1.3x
+
+        return {
+            isTablet,
+            isLandscape,
+            screenScale,
+            // Font sizes
+            inputFontSize: Math.min(Math.max(14 * screenScale, 14), isTablet ? 18 : 16),
+            placeholderFontSize: Math.min(Math.max(14 * screenScale, 14), isTablet ? 18 : 16),
+            suggestionFontSize: Math.min(Math.max(12 * screenScale, 12), isTablet ? 15 : 13),
+            counterFontSize: Math.min(Math.max(10 * screenScale, 10), isTablet ? 12 : 11),
+            // Icon sizes
+            iconSize: Math.min(Math.max(20 * screenScale, 20), isTablet ? 28 : 24),
+            attachIconSize: Math.min(Math.max(22 * screenScale, 22), isTablet ? 28 : 24),
+            // Container dimensions
+            minHeight: isTablet ? 60 : 50,
+            maxHeight: isTablet ? 140 : 120,
+            buttonSize: isTablet ? 50 : 44,
+            padding: isTablet ? SIZES.padding.large : SIZES.padding.medium,
+            borderRadius: isTablet ? SIZES.radius.xlarge : SIZES.radius.large,
+            // Line height for better text display
+            lineHeight: Math.min(Math.max(18 * screenScale, 18), isTablet ? 24 : 20),
+        };
+    };
+
+    const responsiveDimensions = getResponsiveDimensionsForDevice();
 
     // Handle input focus animations
     useEffect(() => {
@@ -116,8 +163,11 @@ const ChatInputComponent = React.memo(({
                             style={styles.suggestionChip}
                             onPress={() => handleSuggestionPress(suggestion)}
                         >
-                            <Icon name="add-circle-outline" size={16} color={COLORS.primary} />
-                            <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                            <Icon name="add-circle-outline" size={responsiveDimensions.suggestionFontSize + 2} color={COLORS.primary} />
+                            <Text style={[
+                                styles.suggestionChipText,
+                                { fontSize: responsiveDimensions.suggestionFontSize }
+                            ]}>{suggestion}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -126,11 +176,23 @@ const ChatInputComponent = React.memo(({
             {/* Input Container */}
             <Animated.View style={[
                 styles.inputContainer,
-                { borderColor }
+                {
+                    borderColor,
+                    minHeight: responsiveDimensions.minHeight,
+                    maxHeight: responsiveDimensions.maxHeight,
+                    borderRadius: responsiveDimensions.borderRadius,
+                    paddingHorizontal: responsiveDimensions.padding,
+                }
             ]}>
                 {/* Attach Button */}
                 <TouchableOpacity
-                    style={styles.attachButton}
+                    style={[
+                        styles.attachButton,
+                        {
+                            width: responsiveDimensions.buttonSize * 0.8,
+                            height: responsiveDimensions.buttonSize * 0.8,
+                        }
+                    ]}
                     onPress={handleDocumentPick}
                     disabled={isProcessingDocument || isTyping}
                     accessibilityRole="button"
@@ -139,7 +201,7 @@ const ChatInputComponent = React.memo(({
                 >
                     <Icon
                         name={isProcessingDocument ? "hourglass-outline" : "attach-outline"}
-                        size={24}
+                        size={responsiveDimensions.attachIconSize}
                         color={isProcessingDocument || isTyping ? COLORS.textGrayLight : COLORS.textGray}
                     />
                 </TouchableOpacity>
@@ -147,7 +209,15 @@ const ChatInputComponent = React.memo(({
                 {/* Text Input */}
                 <TextInput
                     ref={inputRef}
-                    style={styles.textInput}
+                    style={[
+                        styles.textInput,
+                        {
+                            fontSize: responsiveDimensions.inputFontSize,
+                            lineHeight: responsiveDimensions.lineHeight,
+                            minHeight: responsiveDimensions.minHeight - 12, // Adjust for container padding
+                            maxHeight: responsiveDimensions.maxHeight - 20,
+                        }
+                    ]}
                     placeholder="Ask me about your finances..."
                     placeholderTextColor={COLORS.textGray}
                     value={message}
@@ -164,7 +234,10 @@ const ChatInputComponent = React.memo(({
 
                 {/* Character Counter */}
                 {message.length > 400 && (
-                    <Text style={styles.characterCounter}>
+                    <Text style={[
+                        styles.characterCounter,
+                        { fontSize: responsiveDimensions.counterFontSize }
+                    ]}>
                         {500 - message.length}
                     </Text>
                 )}
@@ -174,7 +247,13 @@ const ChatInputComponent = React.memo(({
                     <TouchableOpacity
                         style={[
                             styles.sendButton,
-                            !canSend && styles.sendButtonDisabled
+                            !canSend && styles.sendButtonDisabled,
+                            {
+                                width: responsiveDimensions.buttonSize,
+                                height: responsiveDimensions.buttonSize,
+                                borderRadius: responsiveDimensions.buttonSize / 2,
+                                padding: responsiveDimensions.padding * 0.6,
+                            }
                         ]}
                         onPress={handleSendPress}
                         disabled={!canSend}
@@ -184,7 +263,7 @@ const ChatInputComponent = React.memo(({
                     >
                         <Icon
                             name={isTyping ? "hourglass-outline" : "send"}
-                            size={20}
+                            size={responsiveDimensions.iconSize}
                             color={COLORS.white}
                         />
                     </TouchableOpacity>
@@ -207,18 +286,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
         backgroundColor: COLORS.darkBackground,
-        borderRadius: SIZES.radius.large,
         borderWidth: 1,
         borderColor: COLORS.border,
-        paddingHorizontal: SIZES.padding.medium,
         paddingVertical: SIZES.padding.small,
-        minHeight: 50,
-        maxHeight: 120,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 3,
+        // borderRadius, paddingHorizontal, minHeight, maxHeight are set dynamically via responsiveDimensions
     },
     attachButton: {
         padding: SIZES.padding.small,
@@ -227,9 +303,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'transparent',
         justifyContent: 'center',
         alignItems: 'center',
-        width: 36,
-        height: 36,
         marginBottom: SIZES.padding.small,
+        // width, height are set dynamically via responsiveDimensions
     },
     textInput: {
         flex: 1,
@@ -238,25 +313,19 @@ const styles = StyleSheet.create({
         paddingVertical: SIZES.padding.medium,
         paddingHorizontal: SIZES.padding.small,
         textAlignVertical: 'center',
-        minHeight: 44,
-        maxHeight: 100,
-        fontSize: 16,
-        lineHeight: 20,
+        // fontSize, lineHeight, minHeight, maxHeight are set dynamically via responsiveDimensions
     },
     sendButton: {
         backgroundColor: COLORS.primary,
-        borderRadius: SIZES.radius.large,
-        padding: SIZES.padding.medium,
         marginLeft: SIZES.padding.small,
         justifyContent: 'center',
         alignItems: 'center',
-        width: 44,
-        height: 44,
         shadowColor: COLORS.primary,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
         elevation: 4,
+        // width, height, borderRadius, padding are set dynamically via responsiveDimensions
     },
     sendButtonDisabled: {
         backgroundColor: COLORS.textGray,
@@ -294,6 +363,7 @@ const styles = StyleSheet.create({
         color: COLORS.primary,
         marginLeft: SIZES.padding.small,
         fontWeight: '500',
+        // fontSize is set dynamically via responsiveDimensions
     },
     characterCounter: {
         position: 'absolute',
@@ -301,10 +371,10 @@ const styles = StyleSheet.create({
         right: 60,
         ...FONTS.body3,
         color: COLORS.textGray,
-        fontSize: 12,
         backgroundColor: COLORS.darkBackground,
         paddingHorizontal: 4,
         borderRadius: 8,
+        // fontSize is set dynamically via responsiveDimensions
     },
 });
 

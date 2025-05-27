@@ -96,7 +96,8 @@ const SuggestionBubble = React.memo(({ suggestion, onPress, index }) => {
 const SuggestionComponent = React.memo(({
     suggestedQuestions,
     onSuggestionClick,
-    maxVisible = 6 // Limit visible suggestions to prevent overwhelming UI
+    maxVisible = 6, // Limit visible suggestions to prevent overwhelming UI
+    scrollEnabled = false // Prop to know if parent is scrollable
 }) => {
     const [showAll, setShowAll] = useState(false);
     const [fadeAnim] = useState(new Animated.Value(1));
@@ -128,6 +129,14 @@ const SuggestionComponent = React.memo(({
 
     return (
         <Animated.View style={[styles.suggestionBubblesContainer, { opacity: fadeAnim }]}>
+            {/* Scroll indicator hint for many suggestions - only show if parent is scrollable */}
+            {scrollEnabled && suggestedQuestions.length > 4 && !showAll && (
+                <View style={styles.scrollHintContainer}>
+                    <Icon name="chevron-down" size={16} color={COLORS.textGray} />
+                    <Text style={styles.scrollHintText}>Scroll to see more suggestions</Text>
+                </View>
+            )}
+
             {visibleSuggestions.map((suggestion, index) => (
                 <SuggestionBubble
                     key={`suggestion-${index}`}
@@ -166,6 +175,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: SIZES.padding.large,
+        minHeight: 'auto', // Allow container to size based on content
+        paddingBottom: SIZES.padding.medium, // Extra bottom padding for scroll
     },
     suggestionBubble: {
         backgroundColor: COLORS.darkBackground,
@@ -181,6 +192,9 @@ const styles = StyleSheet.create({
         elevation: 2,
         maxWidth: screenWidth * 0.8,
         alignSelf: 'center',
+        // Optimize for scrolling
+        shouldRasterizeIOS: true,
+        renderToHardwareTextureAndroid: true,
     },
     suggestionText: {
         ...FONTS.body3,
@@ -210,6 +224,20 @@ const styles = StyleSheet.create({
     },
     suggestionIcon: {
         marginRight: SIZES.padding.small,
+    },
+    scrollHintContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: SIZES.padding.medium,
+        opacity: 0.7,
+    },
+    scrollHintText: {
+        ...FONTS.body3,
+        color: COLORS.textGray,
+        marginLeft: SIZES.padding.small,
+        fontSize: 12,
+        fontStyle: 'italic',
     },
 });
 

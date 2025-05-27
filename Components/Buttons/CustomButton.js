@@ -1,16 +1,38 @@
 import React from "react";
-import { TouchableOpacity, Text, StyleSheet, Dimensions } from "react-native";
+import { TouchableOpacity, Text, StyleSheet, Dimensions, ActivityIndicator } from "react-native";
 
 const { width } = Dimensions.get("window");
 
-const CustomButton = ({ title, onPress, backgroundColor = "#F8AF14", textColor = "#484848" }) => {
+const CustomButton = ({
+  title,
+  onPress,
+  backgroundColor = "#F8AF14",
+  textColor = "#484848",
+  disabled = false,
+  loading = false
+}) => {
+  const buttonStyle = [
+    styles.button,
+    { backgroundColor: disabled ? "#CCCCCC" : backgroundColor }
+  ];
+
+  const textStyle = [
+    styles.buttonText,
+    { color: disabled ? "#888888" : textColor }
+  ];
+
   return (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor }]}
-      activeOpacity={0.8}
-      onPress={onPress}
+      style={buttonStyle}
+      activeOpacity={disabled ? 1 : 0.8}
+      onPress={disabled || loading ? undefined : onPress}
+      disabled={disabled || loading}
     >
-      <Text style={[styles.buttonText, { color: textColor }]}>{title}</Text>
+      {loading ? (
+        <ActivityIndicator color={textColor} size="small" />
+      ) : (
+        <Text style={textStyle}>{title}</Text>
+      )}
     </TouchableOpacity>
   );
 };
