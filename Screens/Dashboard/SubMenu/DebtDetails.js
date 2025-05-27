@@ -1,10 +1,13 @@
+
 import React from "react";
-import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Image, Dimensions } from "react-native";
 import BackButton from "../../../Components/Buttons/BackButton";
 import FriendCard from "../../../Components/FriendCards/FriendCard";
 import ScreenWrapper from "../../../Components/ScreenWrapper";
 const plantImage = require("../../../assets/debt-details.png");
-import { COLORS, FONTS, SHADOWS, SIZES } from "../../../constants/theme";
+import { COLORS, FONTS, SIZES } from "../../../constants/theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
@@ -20,9 +23,7 @@ const DebtDetails = ({ navigation, route }) => {
   const { friend, debts, type } = route.params;
 
   const sortedDebts = debts
-    ? debts
-        .filter((d) => !d.paid)
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    ? debts.filter((d) => !d.paid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
     : [];
   const currentDebt = sortedDebts[0];
   const upcomingDebts = sortedDebts.slice(1);
@@ -52,26 +53,16 @@ const DebtDetails = ({ navigation, route }) => {
     return null;
   };
 
-  const getAmountStyle = () => {
-    if (type === "owe") {
-      return styles.amountSent;
-    } else {
-      return styles.amountReceived;
-    }
-  };
+  // Dynamic amount color
+  const getAmountStyle = () => (type === "owe" ? styles.amountSent : styles.amountReceived);
 
-  const getBadgeType = (paid) => {
-    if (type === "owe") {
-      return "sent";
-    } else {
-      return "received";
-    }
-  };
+  // Responsive card/image width
+  const CARD_WIDTH = SCREEN_WIDTH - SIZES.padding.xxlarge * 2;
 
   return (
     <ScreenWrapper backgroundColor={COLORS.white}>
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { paddingHorizontal: SIZES.padding.xxlarge }]}
         contentContainerStyle={{ paddingBottom: 30 }}
         keyboardShouldPersistTaps="handled"
       >
@@ -95,7 +86,7 @@ const DebtDetails = ({ navigation, route }) => {
 
         <Text style={styles.sectionHeader}>Current Debt</Text>
         {currentDebt ? (
-          <View style={styles.debtCard}>
+          <View style={[styles.debtCard, { width: CARD_WIDTH }]}>
             <View style={styles.debtCardContent}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.debtLabel}>Due Date</Text>
@@ -110,13 +101,22 @@ const DebtDetails = ({ navigation, route }) => {
                   Date of issue: {formatDate(currentDebt.date)}
                 </Text>
               </View>
-              {/* Image is absolutely positioned in the card */}
-              <Image source={plantImage} style={styles.plantImg} />
+              <Image
+                source={plantImage}
+                style={[
+                  styles.plantImg,
+                  {
+                    width: "70%",
+                    height: "70%",
+                    left: "60%",
+                    top: "40%",
+                  },
+                ]}
+              />
             </View>
             <View style={styles.badgeRow}>
-              {new Date(currentDebt.dueDate) < new Date() &&
-                renderBadge("overdue")}
-              {renderBadge(getBadgeType(currentDebt.paid))}
+              {new Date(currentDebt.dueDate) < new Date() && renderBadge("overdue")}
+              {renderBadge(type === "owe" ? "sent" : "received")}
             </View>
           </View>
         ) : (
@@ -128,7 +128,7 @@ const DebtDetails = ({ navigation, route }) => {
           <Text style={styles.noDebtText}>No more upcoming debts.</Text>
         )}
         {upcomingDebts.map((debt) => (
-          <View key={debt.id} style={styles.debtCard}>
+          <View key={debt.id} style={[styles.debtCard, { width: CARD_WIDTH }]}>
             <View style={styles.debtCardContent}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.debtLabel}>Due Date</Text>
@@ -141,10 +141,21 @@ const DebtDetails = ({ navigation, route }) => {
                   Date of issue: {formatDate(debt.date)}
                 </Text>
               </View>
-              <Image source={plantImage} style={styles.plantImg} />
+              <Image
+                source={plantImage}
+                style={[
+                  styles.plantImg,
+                  {
+                    width: "70%",
+                    height: "70%",
+                    left: "60%",
+                    top: "40%",
+                  },
+                ]}
+              />
             </View>
             <View style={styles.badgeRow}>
-              {renderBadge(getBadgeType(debt.paid))}
+              {renderBadge(type === "owe" ? "sent" : "received")}
             </View>
           </View>
         ))}
@@ -157,7 +168,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.white,
-    paddingHorizontal: SIZES.padding.xxlarge,
     paddingTop: 20,
   },
   headerRow: {
@@ -170,21 +180,21 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     color: COLORS.text,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.xlarge,
     marginRight: 48,
   },
   subtitle: {
     color: COLORS.textSecondary,
     marginBottom: SIZES.padding.large,
-    fontFamily: "Poppins-Regular",
+    fontFamily: FONTS.body2.fontFamily,
     fontSize: SIZES.font.medium,
     lineHeight: 22,
     textAlign: "left",
   },
   highlight: {
     color: COLORS.primary,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.medium,
   },
   friendCardWrapper: {
@@ -195,7 +205,7 @@ const styles = StyleSheet.create({
     color: COLORS.darkGray,
     marginTop: SIZES.padding.large,
     marginBottom: SIZES.padding.small,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.large,
   },
   debtCard: {
@@ -213,49 +223,46 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     minHeight: 160,
     justifyContent: "flex-end",
+    alignSelf: "center",
   },
   debtCardContent: {
     flexDirection: "row",
     alignItems: "flex-end",
     minHeight: 120,
+    position: "relative",
   },
   debtLabel: {
     color: COLORS.inactive,
-    fontFamily: "Poppins-Regular",
+    fontFamily: FONTS.body3.fontFamily,
     fontSize: SIZES.font.medium,
     marginTop: 4,
   },
   debtValue: {
     color: COLORS.text,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.large,
     marginBottom: 2,
   },
   amountReceived: {
     marginTop: 2,
-    color: COLORS.BrightGreen,
-    fontFamily: "Poppins-SemiBold",
+    color: "#1BC47D", // bright green
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.xxlarge,
   },
   amountSent: {
     marginTop: 2,
-    color: COLORS.DeepRed,
-    fontFamily: "Poppins-SemiBold",
+    color: "#E53935", // strong red
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.xlarge,
   },
   issueDate: {
     color: COLORS.inactive,
     marginTop: 2,
-    fontFamily: "Poppins-Regular",
+    fontFamily: FONTS.body3.fontFamily,
     fontSize: SIZES.font.medium,
   },
   plantImg: {
     position: "absolute",
-    right: 0,
-    bottom: 0,
-    left:180,
-    width: 250,
-    height: 150,
     resizeMode: "contain",
     opacity: 0.9,
     zIndex: 0,
@@ -274,7 +281,7 @@ const styles = StyleSheet.create({
   },
   overdueText: {
     color: COLORS.Red,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.small,
     textTransform: "lowercase",
     fontWeight: "bold",
@@ -288,7 +295,7 @@ const styles = StyleSheet.create({
   },
   receivedText: {
     color: COLORS.white,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.small,
     textTransform: "capitalize",
     fontWeight: "bold",
@@ -302,7 +309,7 @@ const styles = StyleSheet.create({
   },
   sentText: {
     color: COLORS.white,
-    fontFamily: "Poppins-SemiBold",
+    fontFamily: FONTS.h3.fontFamily,
     fontSize: SIZES.font.small,
     textTransform: "capitalize",
     fontWeight: "bold",
@@ -311,7 +318,7 @@ const styles = StyleSheet.create({
     color: COLORS.inactive,
     marginLeft: 8,
     marginBottom: SIZES.padding.small,
-    fontFamily: "Poppins-Regular",
+    fontFamily: FONTS.body3.fontFamily,
     fontSize: SIZES.font.medium,
   },
 });

@@ -38,7 +38,11 @@
 
 //   // Real-time fetch debts for this friend (only UNPAID debts)
 //   useEffect(() => {
-//     if (!user) return;
+//     if (!user || !friendId || !type) {
+//       setDebts([]);
+//       setLoading(false);
+//       return;
+//     }
 //     setLoading(true);
 
 //     const debtsRef = collection(
@@ -50,10 +54,17 @@
 //       "debts"
 //     );
 //     const unsub = onSnapshot(debtsRef, (debtsSnap) => {
+//       if (!debtsSnap || !Array.isArray(debtsSnap.docs)) {
+//         setDebts([]);
+//         setLoading(false);
+//         return;
+//       }
 //       const unpaid = debtsSnap.docs
 //         .map((doc) => ({ id: doc.id, ...doc.data() }))
 //         .filter((d) =>
-//           type === "owe" ? d.type === "Debt" && !d.paid : d.type === "Credit" && !d.paid
+//           type === "owe"
+//             ? d.type === "Debt" && !d.paid
+//             : d.type === "Credit" && !d.paid
 //         );
 //       setDebts(unpaid);
 //       setLoading(false);
@@ -122,7 +133,10 @@
 //       }
 
 //       setSelectedDebt(null);
-//       Alert.alert("Success", type === "owe" ? "Debt paid!" : "Payment received!");
+//       Alert.alert(
+//         "Success",
+//         type === "owe" ? "Debt paid!" : "Payment received!"
+//       );
 //     } catch (err) {
 //       setSelectedDebt(null); // Keep the debt in UI if payment fails
 //       Alert.alert("Error", "Could not process payment.");
@@ -134,55 +148,85 @@
 //     navigation.goBack();
 //   };
 
+//   // View Details handler: Pass ALL debts for this friend and friend info
+//   const handleViewDetails = () => {
+//     navigation.navigate("DebtDetails", {
+//       friend: {
+//         avatar,
+//         name: friendName,
+//         email: friendEmail,
+//         id: friendId,
+//       },
+//       debts, // pass the full array!
+//     });
+//   };
+
 //   return (
 //     <ScreenWrapper backgroundColor={COLORS.white}>
 //       <View style={styles.container}>
 //         <View style={styles.header}>
 //           <BackButton onPress={handleBackPress} />
-//           <Text style={styles.title}>{type === "owe" ? "Pay Debts" : "Receive Payments"}</Text>
+//           <Text style={styles.title}>
+//             {type === "owe" ? "Pay Debts" : "Receive Payments"}
+//           </Text>
 //         </View>
 //         <Text style={styles.infoText}>
 //           {type === "owe"
 //             ? "Below are unpaid debts you owe to this contact. Tap to pay."
-//             : "Below are unpaid debts this contact owes you. Tap to receive."}
+///             : "Below are unpaid debts this contact owes you. Tap to receive."}
 //         </Text>
+//         {/* View Details Button (shows at the top for this friend) */}
+//         <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 8 }}>
+//           <TouchableOpacity
+//             onPress={handleViewDetails}
+//             style={{
+//               alignSelf: "flex-end",
+//               paddingHorizontal: 12,
+//               paddingVertical: 4,
+//               borderRadius: 8,
+//               backgroundColor: "#F3F4F6",
+//             }}
+//           >
+//             <Text style={{ color: "#174C3C", fontWeight: "bold" }}>
+//               View Details
+//             </Text>
+//           </TouchableOpacity>
+//         </View>
 //         {loading ? (
-//           <ActivityIndicator style={{ marginTop: 32 }} size="large" color={COLORS.primary} />
+//           <ActivityIndicator
+//             style={{ marginTop: 32 }}
+//             size="large"
+//             color={COLORS.primary}
+//           />
 //         ) : (
 //           <ScrollView contentContainerStyle={styles.scrollContainer}>
 //             {debts.length === 0 ? (
-//               <Text style={{ color: "#888", textAlign: "center", marginTop: 30 }}>
-//                 No unpaid {type === "owe" ? "debts" : "credits"} for this contact!
+//               <Text
+//                 style={{ color: "#888", textAlign: "center", marginTop: 30 }}
+//               >
+//                 No unpaid {type === "owe" ? "debts" : "credits"} for this
+//                 contact!
 //               </Text>
 //             ) : (
 //               debts.map((debt) => (
-//                 <TouchableOpacity
+//                 <View
 //                   key={debt.id}
-//                   disabled={paying}
-//                   onPress={() => handlePayOrReceive(debt)}
 //                   style={{ marginBottom: SIZES.padding.medium }}
 //                 >
-//                   <FriendCard
-//                     avatar={avatar}
-//                     name={friendName}
-//                     email={friendEmail}
-//                     debtAmount={debt.amount}
-//                     dueDate={debt.dueDate}
-//                     youOwe={type === "owe"}
-//                   />
-//                   {/* Only show Overdue if actually overdue */}
-//                   {debt.dueDate && new Date(debt.dueDate) < new Date() && (
-//                     <Text
-//                       style={{
-//                         color: "#F04438",
-//                         fontWeight: "bold",
-//                         marginTop: 4,
-//                         marginLeft: 12,
-//                       }}
-//                     >
-//                     </Text>
-//                   )}
-//                 </TouchableOpacity>
+//                   <TouchableOpacity
+//                     disabled={paying}
+//                     onPress={() => handlePayOrReceive(debt)}
+//                   >
+//                     <FriendCard
+//                       avatar={avatar}
+//                       name={friendName}
+//                       email={friendEmail}
+//                       debtAmount={debt.amount}
+//                       dueDate={debt.dueDate}
+//                       youOwe={type === "owe"}
+//                     />
+//                   </TouchableOpacity>
+//                 </View>
 //               ))
 //             )}
 //           </ScrollView>
@@ -213,7 +257,8 @@
 //                   marginBottom: 12,
 //                 }}
 //               >
-//                 Select account {type === "owe" ? "to pay from" : "to receive to"}:
+//                 Select account{" "}
+//                 {type === "owe" ? "to pay from" : "to receive to"}:
 //               </Text>
 //               {accounts.map((acc) => (
 //                 <TouchableOpacity
@@ -235,12 +280,17 @@
 //                 onPress={() => setAccountModalVisible(false)}
 //                 disabled={paying}
 //               >
-//                 <Text style={{ color: "red", marginTop: 16, textAlign: "center" }}>
+//                 <Text
+//                   style={{ color: "red", marginTop: 16, textAlign: "center" }}
+//                 >
 //                   Cancel
 //                 </Text>
 //               </TouchableOpacity>
 //               {paying && (
-//                 <ActivityIndicator style={{ marginTop: 12 }} color={COLORS.primary} />
+//                 <ActivityIndicator
+//                   style={{ marginTop: 12 }}
+//                   color={COLORS.primary}
+//                 />
 //               )}
 //             </View>
 //           </View>
@@ -310,6 +360,7 @@ import {
   updateDoc,
   increment,
 } from "../../../firebase/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 
 const Debts = ({ navigation, route }) => {
   const { user } = useAuth();
@@ -447,6 +498,20 @@ const Debts = ({ navigation, route }) => {
     });
   };
 
+  // Use your provided icon mapping
+  const getAccountTypeIcon = (type) => {
+    switch (type) {
+      case "balance":
+        return "wallet-sharp";
+      case "income_tracker":
+        return "stats-chart";
+      case "savings_goal":
+        return "trophy";
+      default:
+        return "wallet-sharp";
+    }
+  };
+
   return (
     <ScreenWrapper backgroundColor={COLORS.white}>
       <View style={styles.container}>
@@ -534,6 +599,12 @@ const Debts = ({ navigation, route }) => {
                 padding: 24,
                 borderRadius: 16,
                 minWidth: 300,
+                width: "85%",
+                shadowColor: "#000",
+                shadowOpacity: 0.08,
+                shadowRadius: 8,
+                shadowOffset: { width: 0, height: 2 },
+                elevation: 4,
               }}
             >
               <Text
@@ -541,6 +612,7 @@ const Debts = ({ navigation, route }) => {
                   fontSize: 18,
                   fontWeight: "bold",
                   marginBottom: 12,
+                  textAlign: "center",
                 }}
               >
                 Select account{" "}
@@ -550,25 +622,48 @@ const Debts = ({ navigation, route }) => {
                 <TouchableOpacity
                   key={acc.id}
                   style={{
-                    padding: 12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 12,
+                    paddingHorizontal: 8,
                     borderBottomWidth: 1,
-                    borderBottomColor: "#eee",
+                    borderBottomColor: "#F3F4F6",
+                    borderRadius: 10,
+                    marginBottom: 2,
+                    backgroundColor: "#fff", // White background
                   }}
                   onPress={() => handleAccountChoose(acc)}
                   disabled={paying}
                 >
-                  <Text style={{ fontSize: 16 }}>
-                    {acc.title} (${Number(acc.currentBalance).toFixed(2)})
+                  <Ionicons
+                    name={getAccountTypeIcon(acc.type)}
+                    size={22}
+                    color="#222"
+                    style={{ marginRight: 14 }}
+                  />
+                  <Text style={{ fontSize: 16, flex: 1, color: "#111", fontFamily: "Poppins-Regular" }}>
+                    {acc.title}
+                  </Text>
+                  <Text style={{ fontSize: 15, color: "#888", fontFamily: "Poppins-Regular" }}>
+                    ${Number(acc.currentBalance).toFixed(2)}
                   </Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
                 onPress={() => setAccountModalVisible(false)}
                 disabled={paying}
+                style={{
+                  marginTop: 18,
+                  alignSelf: "center",
+                  backgroundColor: "#fff",
+                  borderRadius: 8,
+                  paddingHorizontal: 24,
+                  paddingVertical: 10,
+                  borderWidth: 1,
+                  borderColor: "#ddd",
+                }}
               >
-                <Text
-                  style={{ color: "red", marginTop: 16, textAlign: "center" }}
-                >
+                <Text style={{ color: "#111", fontSize: 16, fontFamily: "Poppins-SemiBold" }}>
                   Cancel
                 </Text>
               </TouchableOpacity>

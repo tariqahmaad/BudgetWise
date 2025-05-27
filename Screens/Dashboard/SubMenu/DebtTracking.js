@@ -32,9 +32,17 @@ import {
   onSnapshot,
 } from "../../../firebase/firebaseConfig";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+// Dynamic modal sizing and spacing
+const MODAL_WIDTH = Math.min(SCREEN_WIDTH * 0.92, 400);
+const MODAL_PADDING_H = Math.round(SCREEN_WIDTH * 0.04);
+const MODAL_PADDING_V = Math.round(SCREEN_HEIGHT * 0.025);
+const FRIEND_CARD_GAP = Math.max(6, Math.round(SCREEN_HEIGHT * 0.008));
+const MODAL_RADIUS = Math.round(SCREEN_WIDTH * 0.055);
+
 const CARD_WIDTH = SCREEN_WIDTH - SIZES.padding.xlarge * 2;
-const CARD_MARGIN = 6;
+const CARD_MARGIN = 7;
 const CARD_TOTAL_WIDTH = CARD_WIDTH + CARD_MARGIN * 2;
 const SIDE_SPACER = (SCREEN_WIDTH - CARD_WIDTH) / 2;
 
@@ -198,9 +206,15 @@ const DebtTracking = ({ navigation }) => {
     },
   ];
 
+  // Add this function in your DebtTracking component:
+  const getCardMarginRight = (index, total) => {
+    // If last card, use SIDE_SPACER, else CARD_MARGIN
+    return index === total - 1 ? SIDE_SPACER : CARD_MARGIN;
+  };
+
   // Debt Card render for FlatList (horizontal)
-  const renderDebtCard = ({ item }) => (
-    <View style={{ width: CARD_WIDTH, marginHorizontal: CARD_MARGIN }}>
+  const renderDebtCard = ({ item, index }) => (
+    <View style={{ width: CARD_WIDTH, marginLeft: CARD_MARGIN, marginRight: getCardMarginRight(index, debtCards.length) }}>
       <Pressable onPress={item.onPress} style={styles.debtCardPressable}>
         <MainCard
           title={item.title}
@@ -272,7 +286,6 @@ const DebtTracking = ({ navigation }) => {
             contentContainerStyle={{
               paddingBottom: 10,
               paddingTop: 10,
-              // REMOVE gap here!
             }}
             snapToInterval={CARD_TOTAL_WIDTH}
             decelerationRate="fast"
@@ -283,9 +296,9 @@ const DebtTracking = ({ navigation }) => {
               setDebtCardIndex(index);
             }}
             scrollEventThrottle={16}
-            style={{ flexGrow: 0 }}
+            style={{ flexGrow: 0, width: SCREEN_WIDTH }}
             ListHeaderComponent={<View style={{ width: SIDE_SPACER }} />}
-            ListFooterComponent={<View style={{ width: SIDE_SPACER }} />}
+            ListFooterComponent={null} // Remove footer, handled by last card's margin
           />
 
           {renderPaginationDots(debtCardIndex, debtCards.length)}
@@ -329,9 +342,40 @@ const DebtTracking = ({ navigation }) => {
 
           {/* Modal for friend list */}
           <Modal visible={modalVisible} animationType="slide" transparent>
-            <View style={styles.modalWrapper}>
-              <View style={styles.modalContent}>
-                <Text style={styles.modalTitle}>
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: "rgba(0,0,0,0.5)",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#fff",
+                  borderRadius: MODAL_RADIUS,
+                  width: MODAL_WIDTH,
+                  paddingHorizontal: MODAL_PADDING_H,
+                  paddingTop: MODAL_PADDING_V + 10,
+                  paddingBottom: MODAL_PADDING_V,
+                  alignItems: "center",
+                  shadowColor: "#000",
+                  shadowOpacity: 0.08,
+                  shadowRadius: 12,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 8,
+                  maxHeight: SCREEN_HEIGHT * 0.8,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: Math.round(SCREEN_WIDTH * 0.05),
+                    fontFamily: "Poppins-SemiBold",
+                    marginBottom: Math.round(SCREEN_HEIGHT * 0.015),
+                    textAlign: "center",
+                    color: "#111",
+                  }}
+                >
                   {modalType === "owe" ? "People You Owe" : "People Who Owe You"}
                 </Text>
                 <FlatList
@@ -340,11 +384,13 @@ const DebtTracking = ({ navigation }) => {
                   renderItem={({ item }) => (
                     <Pressable
                       style={({ pressed }) => [
-                        styles.friendPressable,
                         {
-                          transform: [{ scale: pressed ? 0.97 : 1 }],
+                          width: "100%",
+                          marginBottom: FRIEND_CARD_GAP,
+                          opacity: pressed ? 0.85 : 1,
                         },
                       ]}
+                      android_ripple={{ color: "#eee" }}
                       onPress={() =>
                         handleFriendPress(item.friend, item.debts, modalType)
                       }
@@ -359,15 +405,34 @@ const DebtTracking = ({ navigation }) => {
                     </Pressable>
                   )}
                   ListEmptyComponent={
-                    <Text style={{ textAlign: "center", color: "#666" }}>
+                    <Text style={{ textAlign: "center", color: "#666", marginTop: 16 }}>
                       No records found.
                     </Text>
                   }
+                  style={{ width: "100%", maxHeight: SCREEN_HEIGHT * 0.4 }}
+                  contentContainerStyle={{
+                    paddingBottom: Math.round(SCREEN_HEIGHT * 0.01),
+                  }}
+                  showsVerticalScrollIndicator={false}
                 />
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Text
-                    style={{ color: "red", marginTop: 16, textAlign: "center" }}
-                  >
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  style={{
+                    marginTop: Math.round(SCREEN_HEIGHT * 0.02),
+                    alignSelf: "center",
+                    backgroundColor: "#fff",
+                    borderRadius: Math.round(SCREEN_WIDTH * 0.03),
+                    paddingHorizontal: Math.round(SCREEN_WIDTH * 0.08),
+                    paddingVertical: Math.round(SCREEN_HEIGHT * 0.015),
+                    borderWidth: 1,
+                    borderColor: "#ddd",
+                  }}
+                >
+                  <Text style={{
+                    color: "#111",
+                    fontSize: Math.round(SCREEN_WIDTH * 0.045),
+                    fontFamily: "Poppins-SemiBold"
+                  }}>
                     Close
                   </Text>
                 </TouchableOpacity>
