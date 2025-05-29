@@ -580,8 +580,15 @@ const AIScreen = ({ navigation }) => {
 
     // Clear chat and reset UI
     const clearChat = async () => {
+        console.log('[AIScreen] Clear button clicked'); // Debug log
         Keyboard.dismiss(); // Dismiss keyboard when clearing chat
-        await clearChatHistory(resetAnimations);
+        try {
+            console.log('[AIScreen] Calling clearChatHistory'); // Debug log
+            await clearChatHistory(resetAnimations);
+            console.log('[AIScreen] Clear chat completed'); // Debug log
+        } catch (error) {
+            console.error('[AIScreen] Error clearing chat:', error);
+        }
     };
 
     // Add keyboard listeners
@@ -619,12 +626,22 @@ const AIScreen = ({ navigation }) => {
                     <View style={styles.container}>
                         {/* Top Bar */}
                         <View style={styles.topBar}>
-                            <TouchableOpacity onPress={() => navigation?.goBack()} style={styles.backButton}>
+                            <TouchableOpacity
+                                onPress={() => navigation?.goBack()}
+                                style={styles.backButton}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
                                 <Icon name="chevron-back" size={28} color={COLORS.text} />
                             </TouchableOpacity>
                             <Text style={styles.topBarTitle}>AI Chat Bot</Text>
                             {chatHistory.length > 0 && (
-                                <TouchableOpacity onPress={clearChat} style={styles.clearButton}>
+                                <TouchableOpacity
+                                    onPress={clearChat}
+                                    style={styles.clearButton}
+                                    activeOpacity={0.7}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
                                     <Icon name="trash-outline" size={24} color={COLORS.text} />
                                 </TouchableOpacity>
                             )}
@@ -792,15 +809,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingTop: Platform.OS === 'android' ? SIZES.padding.medium : SIZES.padding.small,
         paddingBottom: SIZES.padding.small,
-        paddingHorizontal: SIZES.padding.large,
+        paddingHorizontal: SIZES.padding.xxlarge,
         backgroundColor: COLORS.darkBackground,
         height: 70,
-        zIndex: 10,
+        zIndex: 1000,
+        position: 'relative',
     },
     backButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 45,
+        height: 45,
+        borderRadius: 50,
         backgroundColor: COLORS.white,
         justifyContent: 'center',
         alignItems: 'center',
@@ -809,20 +827,21 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
         shadowRadius: 3.84,
-        // Add subtle border for better definition
-        borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.05)',
+        zIndex: 1002,
     },
     topBarTitle: {
         ...FONTS.h3,
         color: COLORS.textLight,
         textAlign: 'center',
-        marginHorizontal: SIZES.padding.small,
+        fontSize: SIZES.font.xlarge,
         position: 'absolute',
         left: 0,
         right: 0,
-        alignSelf: 'center',
-        fontSize: SIZES.font.xlarge,
+        top: 0,
+        bottom: 0,
+        textAlignVertical: 'center',
+        zIndex: 1001,
+        pointerEvents: 'none',
     },
     headerSection: {
         paddingHorizontal: SIZES.padding.xlarge,
@@ -868,9 +887,9 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(0, 0, 0, 0.05)',
     },
     clearButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 45,
+        height: 45,
+        borderRadius: 50,
         backgroundColor: COLORS.white,
         justifyContent: 'center',
         alignItems: 'center',
@@ -879,8 +898,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.15,
         shadowRadius: 3.84,
-        borderWidth: 1,
-        borderColor: 'rgba(0, 0, 0, 0.05)',
+        zIndex: 1002,
     },
     // Styles for Review Modal
     modalCenteredView: {

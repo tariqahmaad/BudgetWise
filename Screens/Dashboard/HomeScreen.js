@@ -437,6 +437,11 @@ const HomeScreen = ({ navigation }) => {
         <TouchableOpacity style={styles.friendCircle} onPress={() => handleFriendPress(item)}>
             <View style={styles.friendAvatarContainer}>
                 <Ionicons name="person-circle-outline" size={50} color={COLORS.text} />
+                {item.isFavorite && (
+                    <View style={styles.favoriteIndicator}>
+                        <Ionicons name="star" size={14} color="#FFD700" />
+                    </View>
+                )}
             </View>
             <Text style={styles.friendName}>{item.name}</Text>
         </TouchableOpacity>
@@ -492,11 +497,27 @@ const HomeScreen = ({ navigation }) => {
         );
     }, [accountsLoading, mainCardsData, mainCardIndex, renderMainCardItem, renderPaginationDots]);
 
+    // Memoize sorted friends with favorites first
+    const sortedFriends = useMemo(() => {
+        return [...friends].sort((a, b) => {
+            // Favorites first
+            if (a.isFavorite && !b.isFavorite) return -1;
+            if (!a.isFavorite && b.isFavorite) return 1;
+            // Then by name alphabetically
+            return (a.name || '').localeCompare(b.name || '');
+        });
+    }, [friends]);
+
+    // Memoize filtered friends to show only favorites
+    const favoriteFriends = useMemo(() => {
+        return friends.filter(friend => friend.isFavorite === true);
+    }, [friends]);
+
     const renderFriendsSection = useCallback(() => (
         <>
             <SectionHeader title="View your friends" onPress={() => { navigation.navigate('debtTracking') }} />
             <FlatList
-                data={friends}
+                data={favoriteFriends}
                 renderItem={renderFriendItem}
                 keyExtractor={item => String(item.id)}
                 horizontal
@@ -515,7 +536,7 @@ const HomeScreen = ({ navigation }) => {
                 )}
             />
         </>
-    ), [friends, renderFriendItem, handleFriendPress, showAddFriendModal, setShowAddFriendModal, navigation]);
+    ), [sortedFriends, renderFriendItem, handleFriendPress, showAddFriendModal, setShowAddFriendModal, navigation]);
 
     const renderSubCards = useCallback(() => {
         if (categoriesLoading) {
@@ -658,6 +679,7 @@ const HomeScreen = ({ navigation }) => {
             await addDoc(collection(firestore, "users", user.uid, "friends"), {
                 name: newFriendName.trim(),
                 email: newFriendEmail.trim(),
+                isFavorite: false,
                 createdAt: serverTimestamp(),
             });
             setNewFriendName("");
@@ -1000,21 +1022,30 @@ const styles = StyleSheet.create({
         marginRight: 16,
     },
     friendAvatarContainer: {
-        width: 65,
-        height: 65,
-        borderRadius: 32.5,
-        backgroundColor: '#F2F2F7',
+        position: 'relative',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#F8F8F8',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 8,
+    },
+    favoriteIndicator: {
+        position: 'absolute',
+        top: -2,
+        right: -2,
+        backgroundColor: '#FFF',
+        borderRadius: 10,
+        width: 20,
+        height: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
         shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 2,
     },
     friendName: {
         fontSize: 13,

@@ -1,6 +1,6 @@
 //new code
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,9 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Dimensions,
+  Alert,
+  Animated,
+  Easing,
 } from "react-native";
 import MainCard from "../../../Components/CategoryCards/MainCard";
 import FriendCard from "../../../Components/FriendCards/FriendCard";
@@ -30,7 +33,10 @@ import {
   firestore,
   collection,
   onSnapshot,
+  doc,
+  updateDoc,
 } from "../../../firebase/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -41,10 +47,12 @@ const MODAL_PADDING_V = Math.round(SCREEN_HEIGHT * 0.025);
 const FRIEND_CARD_GAP = Math.max(6, Math.round(SCREEN_HEIGHT * 0.008));
 const MODAL_RADIUS = Math.round(SCREEN_WIDTH * 0.055);
 
-const CARD_WIDTH = SCREEN_WIDTH - SIZES.padding.xlarge * 2;
-const CARD_MARGIN = 7;
-const CARD_TOTAL_WIDTH = CARD_WIDTH + CARD_MARGIN * 2;
-const SIDE_SPACER = (SCREEN_WIDTH - CARD_WIDTH) / 2;
+// Constants for card dimensions and spacing (matching HomeScreen pattern)
+const CARD_DIMENSIONS = {
+  width: SCREEN_WIDTH * 0.9, // Match MainCard responsive width
+  margin: SCREEN_WIDTH * 0.035, // Match MainCard responsive margin
+  get totalWidth() { return this.width + this.margin; }
+};
 
 const DebtTracking = ({ navigation }) => {
   const { user } = useAuth();
@@ -52,11 +60,11 @@ const DebtTracking = ({ navigation }) => {
   const [friends, setFriends] = useState([]);
   const [debts, setDebts] = useState({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Modal state
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState("owe");
-  const [modalFriends, setModalFriends] = useState([]);
+  // Modal state - Updated for friend actions
+  const [friendModalVisible, setFriendModalVisible] = useState(false);
+  const [selectedFriend, setSelectedFriend] = useState(null);
 
   // Search state
   const [search, setSearch] = useState("");
@@ -64,6 +72,131 @@ const DebtTracking = ({ navigation }) => {
   // Debt card pagination state
   const [debtCardIndex, setDebtCardIndex] = useState(0);
   const debtCardsRef = useRef(null);
+
+  // Animation states for modal
+  const modalScaleAnim = useRef(new Animated.Value(0)).current;
+  const modalOpacityAnim = useRef(new Animated.Value(0)).current;
+  const backgroundOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Animation functions
+  const openModal = useCallback((friend) => {
+    setSelectedFriend(friend);
+    setFriendModalVisible(true);
+
+    // Reset animation values
+    modalScaleAnim.setValue(0.8);
+    modalOpacityAnim.setValue(0);
+    backgroundOpacityAnim.setValue(0);
+
+    // Start animations with smoother timing
+    Animated.parallel([
+      Animated.timing(backgroundOpacityAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+        easing: Easing.bezier(0.25, 0.46, 0.45, 0.94), // Smooth ease-out
+      }),
+      Animated.sequence([
+        Animated.delay(50), // Small delay for better sequencing
+        Animated.parallel([
+          Animated.timing(modalOpacityAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+            easing: Easing.bezier(0.25, 0.46, 0.45, 0.94),
+          }),
+          Animated.spring(modalScaleAnim, {
+            toValue: 1,
+            tension: 65,
+            friction: 7,
+            useNativeDriver: true,
+            restDisplacementThreshold: 0.01,
+            restSpeedThreshold: 0.01,
+          }),
+        ]),
+      ]),
+    ]).start();
+  }, [modalScaleAnim, modalOpacityAnim, backgroundOpacityAnim]);
+
+  const closeModal = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(backgroundOpacityAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+        easing: Easing.bezier(0.55, 0.06, 0.68, 0.19), // Smooth ease-in
+      }),
+      Animated.timing(modalOpacityAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+        easing: Easing.bezier(0.55, 0.06, 0.68, 0.19),
+      }),
+      Animated.spring(modalScaleAnim, {
+        toValue: 0.8,
+        tension: 80,
+        friction: 6,
+        useNativeDriver: true,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 0.01,
+      }),
+    ]).start(() => {
+      setFriendModalVisible(false);
+      setSelectedFriend(null);
+    });
+  }, [modalScaleAnim, modalOpacityAnim, backgroundOpacityAnim]);
+
+  // Function to toggle favorite status
+  const toggleFavorite = useCallback(async (friend) => {
+    if (!user || !friend) return;
+
+    try {
+      const friendRef = doc(firestore, "users", user.uid, "friends", friend.id);
+      const newFavoriteStatus = !friend.isFavorite;
+
+      await updateDoc(friendRef, {
+        isFavorite: newFavoriteStatus,
+      });
+
+      // Update local state immediately for better UX
+      setSelectedFriend(prev => prev ? { ...prev, isFavorite: newFavoriteStatus } : null);
+
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      Alert.alert("Error", "Failed to update favorite status. Please try again.");
+    }
+  }, [user]);
+
+  // Utility function to validate debt data
+  const validateDebt = useCallback((debt) => {
+    return debt &&
+      typeof debt.amount === 'number' &&
+      debt.amount > 0 &&
+      ['Debt', 'Credit'].includes(debt.type);
+  }, []);
+
+  // Utility function to get valid unpaid debts
+  const getValidUnpaidDebts = useCallback((friendDebts) => {
+    return friendDebts.filter(debt => validateDebt(debt) && !debt.paid);
+  }, [validateDebt]);
+
+  // Utility function for debugging debt calculations
+  const logDebtCalculations = useCallback((friends, debts) => {
+    if (__DEV__) {
+      console.log("=== Debt Calculation Debug ===");
+      friends.forEach(friend => {
+        const friendDebts = debts[friend.id] || [];
+        const validDebts = getValidUnpaidDebts(friendDebts);
+        const youOwe = validDebts.filter(d => d.type === "Debt");
+        const theyOwe = validDebts.filter(d => d.type === "Credit");
+
+        console.log(`Friend: ${friend.name}`);
+        console.log(`  You owe: $${youOwe.reduce((sum, d) => sum + d.amount, 0)}`);
+        console.log(`  They owe: $${theyOwe.reduce((sum, d) => sum + d.amount, 0)}`);
+        console.log(`  Total debts: ${friendDebts.length}, Valid unpaid: ${validDebts.length}`);
+      });
+    }
+  }, [getValidUnpaidDebts]);
 
   useEffect(() => {
     if (!user) return;
@@ -76,116 +209,167 @@ const DebtTracking = ({ navigation }) => {
 
   useEffect(() => {
     if (!user) return;
+
+    let isMounted = true;
     let friendsUnsub = null;
     let debtsUnsubs = [];
 
     setLoading(true);
+    setError(null);
 
     const friendsRef = collection(firestore, "users", user.uid, "friends");
-    friendsUnsub = onSnapshot(friendsRef, (friendsSnap) => {
-      const fetchedFriends = friendsSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setFriends(fetchedFriends);
+    friendsUnsub = onSnapshot(
+      friendsRef,
+      (friendsSnap) => {
+        if (!isMounted) return;
 
-      debtsUnsubs.forEach((unsub) => unsub());
-      debtsUnsubs = [];
+        const fetchedFriends = friendsSnap.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setFriends(fetchedFriends);
 
-      fetchedFriends.forEach((friend) => {
-        const debtsRef = collection(
-          firestore,
-          "users",
-          user.uid,
-          "friends",
-          friend.id,
-          "debts"
-        );
-        const unsub = onSnapshot(debtsRef, (debtsSnap) => {
-          const unpaid = debtsSnap.docs
-            .map((doc) => ({ id: doc.id, ...doc.data() }))
-            .filter((d) => !d.paid);
-          setDebts((prev) => ({
-            ...prev,
-            [friend.id]: unpaid,
-          }));
-          setLoading(false);
+        // Clean up previous debt listeners
+        debtsUnsubs.forEach((unsub) => unsub());
+        debtsUnsubs = [];
+
+        if (fetchedFriends.length === 0) {
+          if (isMounted) {
+            setLoading(false);
+          }
+          return;
+        }
+
+        let completedListeners = 0;
+        const totalListeners = fetchedFriends.length;
+
+        fetchedFriends.forEach((friend) => {
+          const debtsRef = collection(
+            firestore,
+            "users",
+            user.uid,
+            "friends",
+            friend.id,
+            "debts"
+          );
+          const unsub = onSnapshot(
+            debtsRef,
+            (debtsSnap) => {
+              if (!isMounted) return;
+
+              const allDebts = debtsSnap.docs
+                .map((doc) => ({ id: doc.id, ...doc.data() }));
+
+              // Store all debts (both paid and unpaid) for better data consistency
+              setDebts((prev) => ({
+                ...prev,
+                [friend.id]: allDebts,
+              }));
+
+              completedListeners++;
+              if (completedListeners === totalListeners && isMounted) {
+                setLoading(false);
+              }
+            },
+            (error) => {
+              console.error(`Error fetching debts for friend ${friend.id}:`, error);
+              if (isMounted) {
+                setError("Failed to load some debt information. Please check your connection.");
+                completedListeners++;
+                if (completedListeners === totalListeners) {
+                  setLoading(false);
+                }
+              }
+            }
+          );
+          debtsUnsubs.push(unsub);
         });
-        debtsUnsubs.push(unsub);
-      });
-    });
+
+        setError(null);
+      },
+      (error) => {
+        console.error("Error fetching friends:", error);
+        if (isMounted) {
+          setError("Failed to load friends. Please check your connection.");
+          setLoading(false);
+        }
+      }
+    );
 
     return () => {
+      isMounted = false;
       if (friendsUnsub) friendsUnsub();
       debtsUnsubs.forEach((unsub) => unsub());
     };
   }, [user]);
 
   const { totalYouOwe, totalOwedToYou, oweList, owedList } =
-    React.useMemo(() => {
+    useMemo(() => {
       let totalYouOwe = 0,
         totalOwedToYou = 0;
       let oweList = [];
       let owedList = [];
 
+      // Add debugging
+      logDebtCalculations(friends, debts);
+
       friends.forEach((friend) => {
         const friendDebts = debts[friend.id] || [];
-        const unpaidYouOwe = friendDebts.filter((d) => d.type === "Debt");
-        const unpaidTheyOwe = friendDebts.filter((d) => d.type === "Credit");
 
-        if (unpaidYouOwe.length > 0) {
-          const sum = unpaidYouOwe.reduce((sum, d) => sum + d.amount, 0);
-          totalYouOwe += sum;
+        // Use utility function for validation
+        const validDebts = getValidUnpaidDebts(friendDebts);
+
+        const unpaidYouOwe = validDebts.filter((d) => d.type === "Debt");
+        const unpaidTheyOwe = validDebts.filter((d) => d.type === "Credit");
+
+        const youOweAmount = unpaidYouOwe.reduce((sum, d) => sum + d.amount, 0);
+        const theyOweAmount = unpaidTheyOwe.reduce((sum, d) => sum + d.amount, 0);
+
+        // Calculate net amounts properly
+        const netAmount = youOweAmount - theyOweAmount;
+
+        if (netAmount > 0) {
+          // You owe them more (net debt)
+          totalYouOwe += netAmount;
           oweList.push({
             friend,
-            amount: sum,
+            amount: netAmount,
             debts: unpaidYouOwe,
+            netAmount: netAmount,
+            youOweAmount,
+            theyOweAmount
           });
-        }
-
-        if (unpaidTheyOwe.length > 0) {
-          const sum = unpaidTheyOwe.reduce((sum, d) => sum + d.amount, 0);
-          totalOwedToYou += sum;
+        } else if (netAmount < 0) {
+          // They owe you more (net credit)
+          const absNetAmount = Math.abs(netAmount);
+          totalOwedToYou += absNetAmount;
           owedList.push({
             friend,
-            amount: sum,
+            amount: absNetAmount,
             debts: unpaidTheyOwe,
+            netAmount: absNetAmount,
+            youOweAmount,
+            theyOweAmount
           });
         }
+        // If netAmount === 0, both amounts cancel out, so no entry in either list
       });
 
       return { totalYouOwe, totalOwedToYou, oweList, owedList };
-    }, [debts, friends]);
+    }, [debts, friends, logDebtCalculations, getValidUnpaidDebts]);
 
-  const openModal = (type) => {
-    setModalType(type);
-    setModalFriends(type === "owe" ? oweList : owedList);
-    setModalVisible(true);
-  };
-
-  const handleFriendPress = (friend, debts, type) => {
-    navigation.navigate("Debts", {
-      friendId: friend.id,
-      friendName: friend.name,
-      friendEmail: friend.email,
-      avatar: require("../../../assets/Avatar01.png"),
-      debts: debts,
-      type: type,
-    });
-    setModalVisible(false);
-  };
-
-  const handleBackPress = () => {
+  const handleBackPress = useCallback(() => {
     navigation.navigate("HomeScreen");
-  };
+  }, [navigation]);
 
-  const filteredFriends = friends.filter(
-    (f) =>
-      f.name?.toLowerCase().includes(search.toLowerCase()) ||
-      f.email?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredFriends = useMemo(() =>
+    friends.filter(
+      (f) =>
+        f.name?.toLowerCase().includes(search.toLowerCase()) ||
+        f.email?.toLowerCase().includes(search.toLowerCase())
+    ), [friends, search]);
 
-  const debtCards = [
+  const debtCards = useMemo(() => [
     {
       key: "owe",
       title: "Total You Owe",
@@ -193,7 +377,7 @@ const DebtTracking = ({ navigation }) => {
       description: "Tap to view & pay",
       amountColor: COLORS.LightRed,
       backgroundColor: COLORS.DeepRed,
-      onPress: () => openModal("owe"),
+      onPress: () => handleDebtCardPress("owe"),
     },
     {
       key: "owed",
@@ -202,36 +386,29 @@ const DebtTracking = ({ navigation }) => {
       description: "Tap to view & receive",
       amountColor: COLORS.LightGreen,
       backgroundColor: COLORS.DeepGreen,
-      onPress: () => openModal("owed"),
+      onPress: () => handleDebtCardPress("owed"),
     },
-  ];
+  ], [totalYouOwe, totalOwedToYou, handleDebtCardPress]);
 
-  // Add this function in your DebtTracking component:
-  const getCardMarginRight = (index, total) => {
-    // If last card, use SIDE_SPACER, else CARD_MARGIN
-    return index === total - 1 ? SIDE_SPACER : CARD_MARGIN;
-  };
-
-  // Debt Card render for FlatList (horizontal)
-  const renderDebtCard = ({ item, index }) => (
-    <View style={{ width: CARD_WIDTH, marginLeft: CARD_MARGIN, marginRight: getCardMarginRight(index, debtCards.length) }}>
-      <Pressable onPress={item.onPress} style={styles.debtCardPressable}>
-        <MainCard
-          title={item.title}
-          amount={item.amount}
-          description={item.description}
-          amountColor={item.amountColor}
-          backgroundColor={item.backgroundColor}
-          Frame={require("../../../assets/debt-tracking-animation.png")}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        />
-      </Pressable>
-    </View>
-  );
+  // Debt Card render for FlatList (horizontal) - Updated to match HomeScreen pattern
+  const renderDebtCard = useCallback(({ item, index }) => (
+    <Pressable onPress={item.onPress} style={styles.debtCardPressable}>
+      <MainCard
+        title={item.title}
+        amount={item.amount}
+        description={item.description}
+        amountColor={item.amountColor}
+        backgroundColor={item.backgroundColor}
+        Frame={require("../../../assets/debt-tracking-animation.png")}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        isLast={index === debtCards.length - 1}
+      />
+    </Pressable>
+  ), [debtCards.length]);
 
   // Pagination Dots
-  const renderPaginationDots = (currentIndex, total) => (
+  const renderPaginationDots = useCallback((currentIndex, total) => (
     <View style={styles.paginationDots}>
       {Array.from({ length: total }).map((_, index) => (
         <View
@@ -243,28 +420,103 @@ const DebtTracking = ({ navigation }) => {
         />
       ))}
     </View>
-  );
+  ), []);
 
   // Friend Card render for FlatList (vertical)
-  const renderFriendItem = ({ item: friend }) => (
-    <Pressable
-      onPress={() =>
-        navigation.navigate("addDebt", {
-          friend, // pass the whole friend object!
-          debts: debts[friend.id] || [],
-          type: "owe",
-        })
-      }
-      android_ripple={{ color: "#eee" }}
-      style={{ marginBottom: 12 }}
-    >
-      <FriendCard
-        avatar={require("../../../assets/Avatar01.png")}
-        name={friend.name}
-        email={friend.email}
-      />
-    </Pressable>
-  );
+  const renderFriendItem = useCallback(({ item: friend }) => {
+    const friendDebts = debts[friend.id] || [];
+    const validDebts = getValidUnpaidDebts(friendDebts);
+
+    const youOweDebts = validDebts.filter((d) => d.type === "Debt");
+    const theyOweDebts = validDebts.filter((d) => d.type === "Credit");
+
+    const youOweAmount = youOweDebts.reduce((sum, d) => sum + d.amount, 0);
+    const theyOweAmount = theyOweDebts.reduce((sum, d) => sum + d.amount, 0);
+
+    // Calculate net amount
+    const netAmount = youOweAmount - theyOweAmount;
+
+    // Determine what to show on the card
+    let displayAmount = null;
+    let youOwe = false;
+
+    if (Math.abs(netAmount) > 0.01) { // Only show if there's a meaningful net amount
+      displayAmount = Math.abs(netAmount);
+      youOwe = netAmount > 0; // Positive means you owe them more
+    }
+
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <FriendCard
+          avatar={require("../../../assets/Avatar01.png")}
+          name={friend.name}
+          email={friend.email}
+          debtAmount={displayAmount}
+          youOwe={youOwe}
+          isFavorite={friend.isFavorite}
+          onPress={() => {
+            // Open friend action modal
+            openModal(friend);
+          }}
+        />
+      </View>
+    );
+  }, [debts, getValidUnpaidDebts, openModal]);
+
+  // Optimized scroll handler
+  const handleScroll = useCallback((e) => {
+    const index = Math.round(
+      e.nativeEvent.contentOffset.x / CARD_DIMENSIONS.totalWidth
+    );
+    setDebtCardIndex(index);
+  }, []);
+
+  const handleDebtCardPress = useCallback((type) => {
+    // Navigate directly to debt management
+    const targetList = type === "owe" ? oweList : owedList;
+
+    if (targetList.length === 0) {
+      // No debts to show - could show a message or do nothing
+      Alert.alert(
+        "No Debts",
+        type === "owe"
+          ? "You don't owe anyone money right now!"
+          : "No one owes you money right now!"
+      );
+      return;
+    }
+
+    if (targetList.length === 1) {
+      // Single friend - navigate directly to their debt details
+      const item = targetList[0];
+      navigation.navigate("DebtDetails", {
+        friend: {
+          avatar: require("../../../assets/Avatar01.png"),
+          name: item.friend.name,
+          email: item.friend.email || '',
+          id: item.friend.id,
+          isFavorite: item.friend.isFavorite || false,
+        },
+        debts: debts[item.friend.id] || [], // Pass all debts for this friend
+        type: type,
+      });
+    } else {
+      // Multiple friends - navigate to the first friend for now
+      // TODO: Could implement a friend selection modal here
+      const item = targetList[0];
+      navigation.navigate("DebtDetails", {
+        friend: {
+          avatar: require("../../../assets/Avatar01.png"),
+          name: item.friend.name,
+          email: item.friend.email || '',
+          id: item.friend.id,
+          isFavorite: item.friend.isFavorite || false,
+        },
+        debts: debts[item.friend.id] || [], // Pass all debts for this friend
+        type: type,
+      });
+    }
+  }, [oweList, owedList, navigation, debts]);
 
   return (
     <ScreenWrapper backgroundColor={COLORS.white}>
@@ -283,22 +535,12 @@ const DebtTracking = ({ navigation }) => {
             renderItem={renderDebtCard}
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{
-              paddingBottom: 10,
-              paddingTop: 10,
-            }}
-            snapToInterval={CARD_TOTAL_WIDTH}
+            contentContainerStyle={styles.flatListContentContainer}
+            snapToInterval={CARD_DIMENSIONS.totalWidth}
             decelerationRate="fast"
-            onScroll={e => {
-              const index = Math.round(
-                e.nativeEvent.contentOffset.x / CARD_TOTAL_WIDTH
-              );
-              setDebtCardIndex(index);
-            }}
+            onScroll={handleScroll}
             scrollEventThrottle={16}
             style={{ flexGrow: 0, width: SCREEN_WIDTH }}
-            ListHeaderComponent={<View style={{ width: SIDE_SPACER }} />}
-            ListFooterComponent={null} // Remove footer, handled by last card's margin
           />
 
           {renderPaginationDots(debtCardIndex, debtCards.length)}
@@ -332,112 +574,314 @@ const DebtTracking = ({ navigation }) => {
             }
           />
 
-          {loading ? (
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {loading && !error && (
             <ActivityIndicator
               style={{ marginTop: 32 }}
               size="large"
               color={COLORS.primary}
             />
-          ) : null}
+          )}
 
-          {/* Modal for friend list */}
-          <Modal visible={modalVisible} animationType="slide" transparent>
-            <View
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(0,0,0,0.5)",
-                justifyContent: "center",
-                alignItems: "center",
-              }}
-            >
-              <View
+          {/* Friend Action Modal */}
+          <Modal visible={friendModalVisible} animationType="none" transparent>
+            <TouchableWithoutFeedback onPress={closeModal}>
+              <Animated.View
                 style={{
-                  backgroundColor: "#fff",
-                  borderRadius: MODAL_RADIUS,
-                  width: MODAL_WIDTH,
-                  paddingHorizontal: MODAL_PADDING_H,
-                  paddingTop: MODAL_PADDING_V + 10,
-                  paddingBottom: MODAL_PADDING_V,
+                  flex: 1,
+                  backgroundColor: backgroundOpacityAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)'],
+                  }),
+                  justifyContent: "center",
                   alignItems: "center",
-                  shadowColor: "#000",
-                  shadowOpacity: 0.08,
-                  shadowRadius: 12,
-                  shadowOffset: { width: 0, height: 2 },
-                  elevation: 8,
-                  maxHeight: SCREEN_HEIGHT * 0.8,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: Math.round(SCREEN_WIDTH * 0.05),
-                    fontFamily: "Poppins-SemiBold",
-                    marginBottom: Math.round(SCREEN_HEIGHT * 0.015),
-                    textAlign: "center",
-                    color: "#111",
-                  }}
-                >
-                  {modalType === "owe" ? "People You Owe" : "People Who Owe You"}
-                </Text>
-                <FlatList
-                  data={modalFriends}
-                  keyExtractor={(item) => item.friend.id}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      style={({ pressed }) => [
+                <TouchableWithoutFeedback onPress={() => { }}>
+                  <Animated.View
+                    style={{
+                      backgroundColor: "#fff",
+                      borderRadius: MODAL_RADIUS,
+                      width: MODAL_WIDTH,
+                      paddingHorizontal: MODAL_PADDING_H,
+                      paddingTop: MODAL_PADDING_V + 10,
+                      paddingBottom: MODAL_PADDING_V,
+                      alignItems: "center",
+                      shadowColor: "#000",
+                      shadowOpacity: 0.08,
+                      shadowRadius: 12,
+                      shadowOffset: { width: 0, height: 2 },
+                      elevation: 8,
+                      maxHeight: SCREEN_HEIGHT * 0.6,
+                      transform: [
                         {
-                          width: "100%",
-                          marginBottom: FRIEND_CARD_GAP,
-                          opacity: pressed ? 0.85 : 1,
+                          scale: modalScaleAnim.interpolate({
+                            inputRange: [0, 0.8, 1],
+                            outputRange: [0.7, 0.95, 1],
+                            extrapolate: 'clamp',
+                          }),
                         },
-                      ]}
-                      android_ripple={{ color: "#eee" }}
-                      onPress={() =>
-                        handleFriendPress(item.friend, item.debts, modalType)
-                      }
-                    >
-                      <FriendCard
-                        avatar={require("../../../assets/Avatar01.png")}
-                        name={item.friend.name}
-                        email={item.friend.email}
-                        debtAmount={item.amount}
-                        youOwe={modalType === "owe"}
-                      />
-                    </Pressable>
-                  )}
-                  ListEmptyComponent={
-                    <Text style={{ textAlign: "center", color: "#666", marginTop: 16 }}>
-                      No records found.
-                    </Text>
-                  }
-                  style={{ width: "100%", maxHeight: SCREEN_HEIGHT * 0.4 }}
-                  contentContainerStyle={{
-                    paddingBottom: Math.round(SCREEN_HEIGHT * 0.01),
-                  }}
-                  showsVerticalScrollIndicator={false}
-                />
-                <TouchableOpacity
-                  onPress={() => setModalVisible(false)}
-                  style={{
-                    marginTop: Math.round(SCREEN_HEIGHT * 0.02),
-                    alignSelf: "center",
-                    backgroundColor: "#fff",
-                    borderRadius: Math.round(SCREEN_WIDTH * 0.03),
-                    paddingHorizontal: Math.round(SCREEN_WIDTH * 0.08),
-                    paddingVertical: Math.round(SCREEN_HEIGHT * 0.015),
-                    borderWidth: 1,
-                    borderColor: "#ddd",
-                  }}
-                >
-                  <Text style={{
-                    color: "#111",
-                    fontSize: Math.round(SCREEN_WIDTH * 0.045),
-                    fontFamily: "Poppins-SemiBold"
-                  }}>
-                    Close
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                        {
+                          translateY: modalScaleAnim.interpolate({
+                            inputRange: [0, 0.8, 1],
+                            outputRange: [50, 10, 0],
+                            extrapolate: 'clamp',
+                          }),
+                        },
+                      ],
+                      opacity: modalOpacityAnim.interpolate({
+                        inputRange: [0, 0.3, 1],
+                        outputRange: [0, 0.8, 1],
+                        extrapolate: 'clamp',
+                      }),
+                    }}
+                  >
+                    {selectedFriend && (
+                      <>
+                        <Animated.View
+                          style={{
+                            opacity: modalOpacityAnim.interpolate({
+                              inputRange: [0, 0.5, 1],
+                              outputRange: [0, 0.3, 1],
+                              extrapolate: 'clamp',
+                            }),
+                            transform: [{
+                              translateY: modalOpacityAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [20, 0],
+                                extrapolate: 'clamp',
+                              }),
+                            }],
+                          }}
+                        >
+                          <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: Math.round(SCREEN_HEIGHT * 0.015),
+                          }}>
+                            <Text
+                              style={{
+                                fontSize: Math.round(SCREEN_WIDTH * 0.05),
+                                fontFamily: "Poppins-SemiBold",
+                                textAlign: "center",
+                                color: "#111",
+                                marginRight: 8,
+                              }}
+                            >
+                              {selectedFriend.name}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => toggleFavorite(selectedFriend)}
+                              style={{
+                                padding: 8,
+                                borderRadius: 20,
+                                backgroundColor: selectedFriend.isFavorite ? "#FFD700" : "#F0F0F0",
+                              }}
+                            >
+                              <Ionicons
+                                name={selectedFriend.isFavorite ? "star" : "star-outline"}
+                                size={20}
+                                color={selectedFriend.isFavorite ? "#FFF" : "#666"}
+                              />
+                            </TouchableOpacity>
+                          </View>
+                        </Animated.View>
+
+                        {/* Friend Card Display */}
+                        <Animated.View
+                          style={{
+                            marginBottom: Math.round(SCREEN_HEIGHT * 0.02),
+                            width: "100%",
+                            opacity: modalOpacityAnim.interpolate({
+                              inputRange: [0, 0.6, 1],
+                              outputRange: [0, 0.5, 1],
+                              extrapolate: 'clamp',
+                            }),
+                            transform: [{
+                              translateY: modalOpacityAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [15, 0],
+                                extrapolate: 'clamp',
+                              }),
+                            }],
+                          }}
+                        >
+                          <FriendCard
+                            avatar={require("../../../assets/Avatar01.png")}
+                            name={selectedFriend.name}
+                            email={selectedFriend.email}
+                            noShadow={true}
+                            isFavorite={selectedFriend.isFavorite}
+                            debtAmount={(() => {
+                              const friendDebts = debts[selectedFriend.id] || [];
+                              const validDebts = getValidUnpaidDebts(friendDebts);
+                              const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
+                              const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
+
+                              const netAmount = youOweAmount - theyOweAmount;
+                              return Math.abs(netAmount) > 0.01 ? Math.abs(netAmount) : null;
+                            })()}
+                            youOwe={(() => {
+                              const friendDebts = debts[selectedFriend.id] || [];
+                              const validDebts = getValidUnpaidDebts(friendDebts);
+                              const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
+                              const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
+
+                              const netAmount = youOweAmount - theyOweAmount;
+                              return netAmount > 0; // Positive means you owe them more
+                            })()}
+                          />
+                        </Animated.View>
+
+                        {/* Action Buttons */}
+                        <Animated.View
+                          style={{
+                            width: "100%",
+                            gap: Math.round(SCREEN_HEIGHT * 0.015),
+                            opacity: modalOpacityAnim.interpolate({
+                              inputRange: [0, 0.7, 1],
+                              outputRange: [0, 0.6, 1],
+                              extrapolate: 'clamp',
+                            }),
+                            transform: [{
+                              translateY: modalOpacityAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [10, 0],
+                                extrapolate: 'clamp',
+                              }),
+                            }],
+                          }}
+                        >
+                          {/* View Debt Details Button - Only show if there are outstanding debts */}
+                          {(() => {
+                            const friendDebts = debts[selectedFriend.id] || [];
+                            const validDebts = getValidUnpaidDebts(friendDebts);
+                            const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
+                            const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
+                            const netAmount = youOweAmount - theyOweAmount;
+
+                            // Only show button if there are outstanding debts (net amount > 0.01)
+                            if (Math.abs(netAmount) > 0.01) {
+                              return (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const primaryType = netAmount > 0 ? "owe" : "owed";
+
+                                    navigation.navigate("DebtDetails", {
+                                      friend: {
+                                        avatar: require("../../../assets/Avatar01.png"),
+                                        name: selectedFriend.name,
+                                        email: selectedFriend.email || '',
+                                        id: selectedFriend.id,
+                                        isFavorite: selectedFriend.isFavorite || false,
+                                      },
+                                      debts: friendDebts, // Pass all debts for this friend
+                                      type: primaryType,
+                                    });
+                                    closeModal();
+                                  }}
+                                  style={{
+                                    backgroundColor: COLORS.primary,
+                                    borderRadius: Math.round(SCREEN_WIDTH * 0.03),
+                                    paddingVertical: Math.round(SCREEN_HEIGHT * 0.018),
+                                    paddingHorizontal: Math.round(SCREEN_WIDTH * 0.06),
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <Text style={{
+                                    color: "#fff",
+                                    fontSize: Math.round(SCREEN_WIDTH * 0.045),
+                                    fontFamily: "Poppins-SemiBold"
+                                  }}>
+                                    View Debt Details
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            }
+                            return null; // Don't render button if debts are settled
+                          })()}
+
+                          {/* Add New Debt Button */}
+                          <TouchableOpacity
+                            onPress={() => {
+                              navigation.navigate("addDebt", {
+                                friend: selectedFriend,
+                                debts: getValidUnpaidDebts(debts[selectedFriend.id] || []),
+                                type: "owe",
+                              });
+                              closeModal();
+                            }}
+                            style={{
+                              backgroundColor: "#fff",
+                              borderRadius: Math.round(SCREEN_WIDTH * 0.03),
+                              paddingVertical: Math.round(SCREEN_HEIGHT * 0.018),
+                              paddingHorizontal: Math.round(SCREEN_WIDTH * 0.06),
+                              alignItems: "center",
+                              borderWidth: 2,
+                              borderColor: COLORS.primary,
+                            }}
+                          >
+                            <Text style={{
+                              color: COLORS.primary,
+                              fontSize: Math.round(SCREEN_WIDTH * 0.045),
+                              fontFamily: "Poppins-SemiBold"
+                            }}>
+                              Add New Debt
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+
+                        {/* Close Button */}
+                        <Animated.View
+                          style={{
+                            opacity: modalOpacityAnim.interpolate({
+                              inputRange: [0, 0.8, 1],
+                              outputRange: [0, 0.7, 1],
+                              extrapolate: 'clamp',
+                            }),
+                            transform: [{
+                              translateY: modalOpacityAnim.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [5, 0],
+                                extrapolate: 'clamp',
+                              }),
+                            }],
+                          }}
+                        >
+                          <TouchableOpacity
+                            onPress={closeModal}
+                            style={{
+                              marginTop: Math.round(SCREEN_HEIGHT * 0.02),
+                              alignSelf: "center",
+                              backgroundColor: "#fff",
+                              borderRadius: Math.round(SCREEN_WIDTH * 0.03),
+                              paddingHorizontal: Math.round(SCREEN_WIDTH * 0.08),
+                              paddingVertical: Math.round(SCREEN_HEIGHT * 0.015),
+                              borderWidth: 1,
+                              borderColor: "#ddd",
+                            }}
+                          >
+                            <Text style={{
+                              color: "#111",
+                              fontSize: Math.round(SCREEN_WIDTH * 0.04),
+                              fontFamily: "Poppins-SemiBold"
+                            }}>
+                              Cancel
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      </>
+                    )}
+                  </Animated.View>
+                </TouchableWithoutFeedback>
+              </Animated.View>
+            </TouchableWithoutFeedback>
           </Modal>
         </View>
       </TouchableWithoutFeedback>
@@ -457,6 +901,11 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 50 : 30,
     paddingHorizontal: SIZES.padding.xxlarge,
     marginBottom: SIZES.padding.large,
+  },
+  flatListContentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+    paddingTop: 10,
   },
   debtCardsFlatListContainer: {
     // Removed paddingHorizontal, use SIDE_SPACER instead
@@ -569,6 +1018,19 @@ const styles = StyleSheet.create({
   inactiveDot: {
     backgroundColor: "#0066FF",
     opacity: 0.3,
+  },
+  errorContainer: {
+    padding: 16,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    marginTop: 16,
+    marginHorizontal: SIZES.padding.xlarge,
+  },
+  errorText: {
+    color: "#FF0000",
+    fontSize: 16,
+    fontFamily: "Poppins-SemiBold",
+    textAlign: "center",
   },
 });
 

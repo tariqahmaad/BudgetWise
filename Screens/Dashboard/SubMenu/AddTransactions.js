@@ -530,17 +530,18 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingTop: Platform.OS === "ios" ? 50 : 30,
     paddingHorizontal: SIZES.padding.xxlarge,
     marginBottom: SIZES.padding.large,
   },
   title: {
     fontSize: SIZES.font.xlarge,
-    marginLeft: SIZES.padding.xlarge,
     color: COLORS.text,
     fontFamily: "Poppins-SemiBold",
-    marginLeft: 45,
-
+    textAlign: "center",
+    flex: 1,
+    marginRight: SIZES.padding.xxlarge,
   },
   subText: {
     fontSize: SIZES.font.medium,
