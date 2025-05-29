@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -15,18 +15,14 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
-import AddAccountModal from "../../Components/Settings/AddAccountModal";
-import AddCategoryModal from "../../Components/Settings/AddCategoryModal";
 import BackButton from "../../Components/Buttons/BackButton";
 import {
   auth,
   firestore,
   collection,
   getDocs,
-  deleteDoc,
-  doc,
 } from "../../firebase/firebaseConfig";
-import { COLORS } from "../../constants/theme";
+import { COLORS, SIZES } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import SettingListItem from "../../Components/Common/SettingListItem";
@@ -37,13 +33,7 @@ const SettingsScreen = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-  const [isAddAccountModalVisible, setIsAddAccountModalVisible] =
-    useState(false);
-  const [isAddCategoryModalVisible, setIsAddCategoryModalVisible] =
-    useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
-  const [categories, setCategories] = useState([]);
 
   const user = auth.currentUser;
 
@@ -56,73 +46,31 @@ const SettingsScreen = () => {
     }).start();
   }, []);
 
-  useEffect(() => {
-    if (user) fetchAccountsAndCategories();
-  }, [user]);
-
-  const fetchAccountsAndCategories = useCallback(async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const accountsRef = collection(firestore, "users", user.uid, "accounts");
-      const categoriesRef = collection(
-        firestore,
-        "users",
-        user.uid,
-        "categories"
-      );
-
-      const [accountsSnapshot, categoriesSnapshot] = await Promise.all([
-        getDocs(accountsRef),
-        getDocs(categoriesRef),
-      ]);
+      const accountsSnapshot = await getDocs(accountsRef);
 
       setAccounts(
         accountsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       );
-      setCategories(
-        categoriesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
-      );
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching accounts:", error);
     }
   }, [user]);
 
-  const confirmDelete = useCallback((type, id) => {
-    Alert.alert(
-      `Delete ${type}`,
-      `Are you sure you want to delete this ${type.toLowerCase()}? This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDelete(type, id),
-        },
-      ]
-    );
-  }, []);
+  useEffect(() => {
+    if (user) fetchAccounts();
+  }, [user, fetchAccounts]);
 
-  const handleDelete = useCallback(
-    async (type, id) => {
-      try {
-        setIsLoading(true);
-        await deleteDoc(
-          doc(
-            firestore,
-            "users",
-            user.uid,
-            type === "Account" ? "accounts" : "categories",
-            id
-          )
-        );
-        await fetchAccountsAndCategories();
-      } catch (error) {
-        console.error(`Error deleting ${type.toLowerCase()}:`, error);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [user, fetchAccountsAndCategories]
-  );
+  // Refresh accounts when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (user) fetchAccounts();
+    });
+
+    return unsubscribe;
+  }, [navigation, user, fetchAccounts]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert("Confirm Sign Out", "Are you sure you want to sign out?", [
@@ -143,19 +91,6 @@ const SettingsScreen = () => {
         },
       },
     ]);
-  }, []);
-
-  const accountIcon = useCallback((type) => {
-    switch (type) {
-      case "balance":
-        return "wallet-outline";
-      case "income_tracker":
-        return "trending-up-outline";
-      case "savings_goal":
-        return "save-outline";
-      default:
-        return "wallet-outline";
-    }
   }, []);
 
   const SectionHeader = ({ title }) => (
@@ -207,55 +142,30 @@ const SettingsScreen = () => {
                 title="My Profile"
                 onPress={() => navigation.navigate("Profile")}
               />
+            </View>
+
+            {/* Financial Management */}
+            <SectionHeader title="Financial Management" />
+            <View style={styles.settingsGroup}>
               <SettingListItem
-                icon="language-outline"
-                iconColor="#FF9500"
-                title="Language"
-                onPress={() =>
-                  Alert.alert("Language", "Navigate to Language Selection")
-                }
-                rightComponent={
-                  <Text style={styles.settingValue}>English</Text>
-                }
+                icon="wallet-outline"
+                iconColor="#34C759"
+                title="Manage Accounts"
+                subtitle={`${accounts.length} of 3 accounts created`}
+                onPress={() => navigation.navigate("ManageAccounts")}
+                rightIcon="chevron-forward-outline"
               />
-            </View>
-
-            {/* My Accounts */}
-            <SectionHeader title="My Accounts" />
-            <View style={styles.settingsGroup}>
-              {accounts.length === 0 ? (
-                <Text style={styles.emptyText}>No accounts added yet.</Text>
-              ) : (
-                accounts.map((acc) => (
-                  <SettingListItem
-                    key={acc.id}
-                    icon={accountIcon(acc.type)}
-                    iconColor="#34C759"
-                    title={acc.title}
-                    onPress={() => confirmDelete("Account", acc.id)}
-                    rightIcon="trash-outline"
-                  />
-                ))
-              )}
-            </View>
-
-            {/* My Categories */}
-            <SectionHeader title="My Categories" />
-            <View style={styles.settingsGroup}>
-              {categories.length === 0 ? (
-                <Text style={styles.emptyText}>No categories added yet.</Text>
-              ) : (
-                categories.map((cat) => (
-                  <SettingListItem
-                    key={cat.id}
-                    icon={cat.iconName}
-                    iconColor="#FF3B30"
-                    title={cat.name}
-                    onPress={() => confirmDelete("Category", cat.id)}
-                    rightIcon="trash-outline"
-                  />
-                ))
-              )}
+              <SettingListItem
+                icon="receipt-outline"
+                iconColor="#FF9500"
+                title="Manage Transactions"
+                subtitle="Edit or delete transaction history"
+                onPress={() => navigation.navigate("ManageTransactions")}
+                rightIcon="chevron-forward-outline"
+              />
+              <Text style={styles.settingDescription}>
+                View and manage your financial accounts and transaction history
+              </Text>
             </View>
 
             {/* Security & Privacy */}
@@ -291,9 +201,6 @@ const SettingsScreen = () => {
                   Alert.alert("Privacy", "Navigate to Privacy Policy")
                 }
               />
-              <Text style={styles.settingDescription}>
-                Manage your privacy and security preferences
-              </Text>
             </View>
 
             {/* Support & Feedback */}
@@ -318,48 +225,8 @@ const SettingsScreen = () => {
                 onPress={() => Alert.alert("Rate App", "Navigate to App Store")}
               />
             </View>
-
-            {/* Account Management */}
-            <SectionHeader title="Account Management" />
-            <View style={styles.settingsGroup}>
-              <SettingListItem
-                icon="add-circle-outline"
-                iconColor="#007AFF"
-                title="Add New Account"
-                subtitle="Create a new financial account"
-                onPress={() => setIsAddAccountModalVisible(true)}
-              />
-              <SettingListItem
-                icon="grid-outline"
-                iconColor="#FF3B30"
-                title="Add New Category"
-                subtitle="Create a custom expense category"
-                onPress={() => setIsAddCategoryModalVisible(true)}
-              />
-            </View>
           </ScrollView>
         </Animated.View>
-
-        {/* Loading overlay during delete */}
-        {isLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-          </View>
-        )}
-
-        <AddAccountModal
-          isVisible={isAddAccountModalVisible}
-          onClose={() => setIsAddAccountModalVisible(false)}
-          user={user}
-          setIsLoading={setIsLoading}
-          isLoading={isLoading}
-        />
-
-        <AddCategoryModal
-          isVisible={isAddCategoryModalVisible}
-          onClose={() => setIsAddCategoryModalVisible(false)}
-          user={user}
-        />
 
         <NavigationBar />
       </View>
@@ -373,8 +240,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingTop: Platform.OS === "ios" ? 50 : 20,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingHorizontal: SIZES.padding.xxlarge,
+    paddingVertical: SIZES.padding.xxlarge,
     backgroundColor: COLORS.white,
   },
   leftContainer: {
@@ -435,20 +302,6 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
     color: "#8E8E93",
     marginRight: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    color: "#8E8E93",
-    padding: 16,
-    textAlign: "center",
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
   },
 });
 

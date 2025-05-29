@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,19 +12,39 @@ const ToggleSwitch = ({
   leftOption = "Expenses",
   rightOption = "Income",
   initialValue,
+  initialType, // Add support for initialType prop
   onToggle,
   disabled = false,
   containerStyle,
   sliderStyle,
   textStyle,
-  activeTextStyle
+  activeTextStyle,
 }) => {
-  const [active, setActive] = useState(initialValue || leftOption);
+  // Use initialType if provided, otherwise fall back to initialValue
+  const initialActiveValue = initialType || initialValue || leftOption;
+
+  const [active, setActive] = useState(initialActiveValue);
   const [containerWidth, setContainerWidth] = useState(0);
-  const animatedValue = useRef(new Animated.Value(initialValue === rightOption ? 1 : 0)).current;
+
+  // Set initial animated value based on the initial active value
+  const animatedValue = useRef(
+    new Animated.Value(initialActiveValue === rightOption ? 1 : 0)
+  ).current;
+
+  // Update the toggle when initialType changes (for edit scenarios)
+  useEffect(() => {
+    if (initialType && initialType !== active) {
+      setActive(initialType);
+      Animated.timing(animatedValue, {
+        toValue: initialType === leftOption ? 0 : 1,
+        duration: 0, // No animation for initial setup
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [initialType, leftOption, rightOption, active, animatedValue]);
 
   // Calculate responsive dimensions
-  const screenWidth = Dimensions.get('window').width;
+  const screenWidth = Dimensions.get("window").width;
   const maxWidth = Math.min(screenWidth - 60, 378); // Leave some margin and max width
   const actualWidth = containerWidth > 0 ? containerWidth : maxWidth;
   const sliderWidth = Math.max((actualWidth - 20) / 2, 80); // Minimum slider width
@@ -60,12 +80,14 @@ const ToggleSwitch = ({
   return (
     <View style={styles.container} onLayout={handleLayout}>
       {/* Background */}
-      <View style={[
-        styles.switchBackground,
-        { width: actualWidth },
-        containerStyle,
-        disabled && styles.disabledBackground
-      ]}>
+      <View
+        style={[
+          styles.switchBackground,
+          { width: actualWidth },
+          containerStyle,
+          disabled && styles.disabledBackground,
+        ]}
+      >
         {/* Sliding Button */}
         <Animated.View
           style={[
@@ -73,7 +95,7 @@ const ToggleSwitch = ({
             { width: sliderWidth },
             sliderStyle,
             { transform: [{ translateX }] },
-            disabled && styles.disabledSlider
+            disabled && styles.disabledSlider,
           ]}
         />
 
@@ -88,7 +110,7 @@ const ToggleSwitch = ({
               styles.text,
               textStyle,
               active === leftOption && (activeTextStyle || styles.activeText),
-              disabled && styles.disabledText
+              disabled && styles.disabledText,
             ]}
           >
             {leftOption}
@@ -104,7 +126,7 @@ const ToggleSwitch = ({
               styles.text,
               textStyle,
               active === rightOption && (activeTextStyle || styles.activeText),
-              disabled && styles.disabledText
+              disabled && styles.disabledText,
             ]}
           >
             {rightOption}

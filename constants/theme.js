@@ -86,6 +86,8 @@ export const SIZES = {
     large: 24,
     xlarge: 50,
   },
+
+  header: 20,
 };
 
 export const NAV_ITEMS = [

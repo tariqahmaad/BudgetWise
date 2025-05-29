@@ -19,6 +19,9 @@ import ForgotPasswordPage from "../Screens/Authenication/ForgotPage";
 import onboardingScreen from "../Screens/onboardingScreen";
 import Debts from "../Screens/Dashboard/SubMenu/Debts";
 import DebtDetails from "../Screens/Dashboard/SubMenu/DebtDetails";
+import ManageAccountsScreen from "../Screens/Settings/ManageAccountsScreen"
+import ManageTransactionsScreen from "../Screens/Settings/ManageTransactionsScreen"
+import EditTransactionScreen from "../Screens/Settings/EditTransactionScreen"
 
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
@@ -64,6 +67,9 @@ const DashboardStack = () => (
     <Stack.Screen name="debtTracking" component={DebtTracking} />
     <Stack.Screen name="Debts" component={Debts} />
     <Stack.Screen name="DebtDetails" component={DebtDetails} />
+    <Stack.Screen name="ManageAccounts" component={ManageAccountsScreen} />
+    <Stack.Screen name="ManageTransactions" component={ManageTransactionsScreen} />
+    <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
   </Stack.Navigator>
 );
 
