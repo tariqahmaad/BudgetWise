@@ -11,16 +11,33 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import ToggleSwitch from "../../../Components/Buttons/ToggleSwitch";
 import BackButton from "../../../Components/Buttons/BackButton";
 import CustomButton from "../../../Components/Buttons/CustomButton";
 import InputField from "../../../Components/InputField/InputField";
-import ScreenWrapper from "../../../Components/ScreenWrapper"; // Make sure this exists
-import { COLORS, SIZES, SHADOWS, CATEGORY_ICONS, DEFAULT_CATEGORY_COLORS } from "../../../constants/theme";
+import ScreenWrapper from "../../../Components/ScreenWrapper";
+import {
+  COLORS,
+  SIZES,
+  SHADOWS,
+  CATEGORY_ICONS,
+  DEFAULT_CATEGORY_COLORS,
+} from "../../../constants/theme";
 
-import { firestore, collection, addDoc, serverTimestamp, auth, query, where, getDocs, updateDoc, doc as firestoreDoc } from "../../../firebase/firebaseConfig";
+import {
+  firestore,
+  collection,
+  addDoc,
+  serverTimestamp,
+  auth,
+  query,
+  where,
+  getDocs,
+  updateDoc,
+  doc as firestoreDoc,
+} from "../../../firebase/firebaseConfig";
 
 const AddTransactions = ({ navigation }) => {
   const [transactionType, setTransactionType] = useState("Expenses");
@@ -29,10 +46,12 @@ const AddTransactions = ({ navigation }) => {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [description, setDescription] = useState("");
-  const [selectedCategoryLabel, setSelectedCategoryLabel] = useState(CATEGORY_ICONS[0].label);
+  const [selectedCategoryLabel, setSelectedCategoryLabel] = useState(
+    CATEGORY_ICONS[0].label
+  );
   const [selectedCategoryIndex, setSelectedCategoryIndex] = useState(0);
 
-  // New state for accounts
+  // State for accounts
   const [accounts, setAccounts] = useState([]);
   const [selectedAccountId, setSelectedAccountId] = useState(null);
   const [selectedAccountIndex, setSelectedAccountIndex] = useState(0);
@@ -47,18 +66,25 @@ const AddTransactions = ({ navigation }) => {
       if (!user) return;
 
       try {
-        const accountsRef = collection(firestore, "users", user.uid, "accounts");
+        const accountsRef = collection(
+          firestore,
+          "users",
+          user.uid,
+          "accounts"
+        );
         const querySnapshot = await getDocs(accountsRef);
-        const accountsData = querySnapshot.docs.map(doc => ({
+        const accountsData = querySnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          // Create icon object for consistent UI with categories
-          icon: doc.data().type === 'balance' ? 'wallet-sharp' :
-            doc.data().type === 'income_tracker' ? 'stats-chart' : 'trophy'
+          icon:
+            doc.data().type === "balance"
+              ? "wallet-sharp"
+              : doc.data().type === "income_tracker"
+              ? "stats-chart"
+              : "trophy",
         }));
 
         setAccounts(accountsData);
-        // Set default selected account if available
         if (accountsData.length > 0) {
           setSelectedAccountId(accountsData[0].id);
         }
@@ -108,43 +134,48 @@ const AddTransactions = ({ navigation }) => {
     if (!user || !categoryName) return false;
 
     try {
-      // Normalize the category name: trim whitespace and convert to lowercase for comparison
       const normalizedCategoryName = categoryName.trim();
       const lowerCaseCategoryName = normalizedCategoryName.toLowerCase();
 
-      const categoriesRef = collection(firestore, "users", user.uid, "categories");
+      const categoriesRef = collection(
+        firestore,
+        "users",
+        user.uid,
+        "categories"
+      );
 
-      // Get all categories for this user to perform comprehensive checking
       const allCategoriesSnapshot = await getDocs(categoriesRef);
 
-      // Check for any matching category using various field names and case-insensitive comparison
       for (const categoryDoc of allCategoriesSnapshot.docs) {
         const data = categoryDoc.data();
 
-        // Check multiple possible field names that might contain the category name
         const fieldsToCheck = [
           data.name,
           data.label,
           data.Category,
-          data.categoryName
+          data.categoryName,
         ];
 
         for (const fieldValue of fieldsToCheck) {
-          if (fieldValue && typeof fieldValue === 'string') {
+          if (fieldValue && typeof fieldValue === "string") {
             const normalizedFieldValue = fieldValue.trim().toLowerCase();
             if (normalizedFieldValue === lowerCaseCategoryName) {
-              console.log(`[AddTx Category Check] Found existing category: "${fieldValue}" matches "${categoryName}"`);
+              console.log(
+                `[AddTx Category Check] Found existing category: "${fieldValue}" matches "${categoryName}"`
+              );
               return true;
             }
           }
         }
       }
 
-      console.log(`[AddTx Category Check] No existing category found for: "${categoryName}"`);
+      console.log(
+        `[AddTx Category Check] No existing category found for: "${categoryName}"`
+      );
       return false;
     } catch (error) {
       console.error("Error checking category existence:", error);
-      return true; // Fail safe - assume duplicate on error to prevent creation
+      return true;
     }
   };
 
@@ -154,55 +185,62 @@ const AddTransactions = ({ navigation }) => {
     if (!user || !categoryLabel) return;
 
     try {
-      // Normalize the category name by trimming whitespace
       const normalizedCategoryLabel = categoryLabel.trim();
 
       if (!normalizedCategoryLabel) {
-        console.warn("[AddTx] Category name is empty after trimming, skipping creation");
+        console.warn(
+          "[AddTx] Category name is empty after trimming, skipping creation"
+        );
         return null;
       }
 
-      // Check if this category is in our predefined list (case-insensitive)
-      const predefinedCategory = CATEGORY_ICONS.find(cat =>
-        cat.label.toLowerCase() === normalizedCategoryLabel.toLowerCase()
+      const predefinedCategory = CATEGORY_ICONS.find(
+        (cat) =>
+          cat.label.toLowerCase() === normalizedCategoryLabel.toLowerCase()
       );
 
       if (!predefinedCategory) {
-        console.warn(`[AddTx] Category "${normalizedCategoryLabel}" is not in predefined list, skipping creation`);
-        return null; // Don't create categories that aren't predefined
+        console.warn(
+          `[AddTx] Category "${normalizedCategoryLabel}" is not in predefined list, skipping creation`
+        );
+        return null;
       }
 
-      // Check if category already exists (case-insensitive)
       const categoryExists = await checkCategoryExists(normalizedCategoryLabel);
       if (categoryExists) {
-        console.log("[AddTx] Category already exists:", normalizedCategoryLabel);
-        return; // Category already exists, no need to create
+        console.log(
+          "[AddTx] Category already exists:",
+          normalizedCategoryLabel
+        );
+        return;
       }
 
-      // Use the exact predefined category data for consistency
       const iconName = predefinedCategory.name;
-      const backgroundColor = DEFAULT_CATEGORY_COLORS[0].value; // Use first default color
-
-      // Use the exact predefined label for consistency
+      const backgroundColor = DEFAULT_CATEGORY_COLORS[0].value;
       const properCaseName = predefinedCategory.label;
 
-      // Create the category data - matching the structure expected by HomeScreen.js
       const categoryData = {
         userId: user.uid,
-        name: properCaseName,          // Primary identifier (use predefined label)
-        iconName: iconName,            // Use predefined icon
-        backgroundColor: backgroundColor, // Used for SubCard background color
+        name: properCaseName,
+        iconName: iconName,
+        backgroundColor: backgroundColor,
         createdAt: serverTimestamp(),
-        // Extra fields for compatibility with different parts of the app
-        label: properCaseName,         // Some code might look for this
-        Category: properCaseName,      // SubCard component expects this
-        amount: "$0.00",              // Initialize with zero amount
-        description: "No spending yet" // Default description
+        label: properCaseName,
+        Category: properCaseName,
+        amount: "$0.00",
+        description: "No spending yet",
       };
 
-      // Add the category to Firestore
-      const docRef = await addDoc(collection(firestore, "users", user.uid, "categories"), categoryData);
-      console.log("[AddTx] Created new predefined category:", properCaseName, "with ID:", docRef.id);
+      const docRef = await addDoc(
+        collection(firestore, "users", user.uid, "categories"),
+        categoryData
+      );
+      console.log(
+        "[AddTx] Created new predefined category:",
+        properCaseName,
+        "with ID:",
+        docRef.id
+      );
 
       return docRef.id;
     } catch (error) {
@@ -212,9 +250,10 @@ const AddTransactions = ({ navigation }) => {
   };
 
   const handleSaveTransaction = async () => {
-    // Prevent multiple submissions
     if (isSaving) {
-      console.log("Transaction save already in progress, ignoring duplicate request");
+      console.log(
+        "Transaction save already in progress, ignoring duplicate request"
+      );
       return;
     }
 
@@ -235,25 +274,27 @@ const AddTransactions = ({ navigation }) => {
         return;
       }
 
-      // Validate account selection
       if (!selectedAccountId) {
         alert("Please select an account");
         setIsSaving(false);
         return;
       }
 
-      // Create the transaction data object
+      // Create enhanced transaction data object combining both versions
       const transactionData = {
-        type: transactionType,
         amount: amountValue,
+        description: description,
+        type: transactionType,
+        accountId: selectedAccountId,
         date: date.toISOString(),
-        description,
         createdAt: serverTimestamp(),
-        accountId: selectedAccountId
+        updatedAt: serverTimestamp(), // Added from second version
       };
 
       // Add account name for better reference
-      const selectedAccount = accounts.find(acc => acc.id === selectedAccountId);
+      const selectedAccount = accounts.find(
+        (acc) => acc.id === selectedAccountId
+      );
       transactionData.accountName = selectedAccount?.title || "Unknown Account";
 
       // Add category for expense transactions
@@ -265,27 +306,48 @@ const AddTransactions = ({ navigation }) => {
 
         // If we have a category, update its total amount
         if (categoryId) {
-          // Update the category directly with the new amount
-          const categoryRef = firestoreDoc(firestore, "users", user.uid, "categories", categoryId);
-          // We need to update the category with the new expense
+          const categoryRef = firestoreDoc(
+            firestore,
+            "users",
+            user.uid,
+            "categories",
+            categoryId
+          );
           await updateDoc(categoryRef, {
             amount: `$${amountValue.toFixed(2)}`,
             description: description || "Recent expense",
-            lastUpdated: serverTimestamp()
+            lastUpdated: serverTimestamp(),
           });
         } else {
           // If we don't have a category ID but the category should exist, find it and update
-          const categoriesRef = collection(firestore, "users", user.uid, "categories");
-          const q = query(categoriesRef, where("name", "==", selectedCategoryLabel));
+          const categoriesRef = collection(
+            firestore,
+            "users",
+            user.uid,
+            "categories"
+          );
+          const q = query(
+            categoriesRef,
+            where("name", "==", selectedCategoryLabel)
+          );
           const querySnapshot = await getDocs(q);
 
           if (!querySnapshot.empty) {
             const categoryDoc = querySnapshot.docs[0];
-            await updateDoc(firestoreDoc(firestore, "users", user.uid, "categories", categoryDoc.id), {
-              amount: `$${amountValue.toFixed(2)}`,
-              description: description || "Recent expense",
-              lastUpdated: serverTimestamp()
-            });
+            await updateDoc(
+              firestoreDoc(
+                firestore,
+                "users",
+                user.uid,
+                "categories",
+                categoryDoc.id
+              ),
+              {
+                amount: `$${amountValue.toFixed(2)}`,
+                description: description || "Recent expense",
+                lastUpdated: serverTimestamp(),
+              }
+            );
           }
         }
       }
@@ -298,36 +360,43 @@ const AddTransactions = ({ navigation }) => {
 
       // Invalidate insights cache after successful add
       try {
-        await AsyncStorage.removeItem('@budgetwise_insights');
-        console.log('[AddTransaction] Cleared insights cache after add.');
+        await AsyncStorage.removeItem("@budgetwise_insights");
+        console.log("[AddTransaction] Cleared insights cache after add.");
       } catch (e) {
-        console.warn('[AddTransaction] Failed to clear insights cache:', e);
+        console.warn("[AddTransaction] Failed to clear insights cache:", e);
       }
 
       // Update only the selected account
-      const accountRef = firestoreDoc(firestore, "users", user.uid, "accounts", selectedAccountId);
-      const accountSnapshot = await getDocs(query(
-        collection(firestore, "users", user.uid, "accounts"),
-        where("__name__", "==", selectedAccountId)
-      ));
+      const accountRef = firestoreDoc(
+        firestore,
+        "users",
+        user.uid,
+        "accounts",
+        selectedAccountId
+      );
+      const accountSnapshot = await getDocs(
+        query(
+          collection(firestore, "users", user.uid, "accounts"),
+          where("__name__", "==", selectedAccountId)
+        )
+      );
 
       if (!accountSnapshot.empty) {
         const accountDoc = accountSnapshot.docs[0];
         const accountData = accountDoc.data();
         const currentBalance = accountData.currentBalance || 0;
 
-        // Update based on transaction type
         if (transactionType === "Income") {
           const totalIncome = accountData.totalIncome || 0;
           await updateDoc(accountRef, {
             currentBalance: currentBalance + amountValue,
-            totalIncome: totalIncome + amountValue
+            totalIncome: totalIncome + amountValue,
           });
-        } else { // Expense
+        } else {
           const totalExpenses = accountData.totalExpenses || 0;
           await updateDoc(accountRef, {
             currentBalance: currentBalance - amountValue,
-            totalExpenses: totalExpenses + amountValue
+            totalExpenses: totalExpenses + amountValue,
           });
         }
       }
@@ -344,7 +413,7 @@ const AddTransactions = ({ navigation }) => {
       }
 
       setShowNotification(true);
-      setIsSaving(false); // Reset loading state when showing success notification
+      setIsSaving(false);
       setTimeout(() => {
         setShowNotification(false);
         navigation.goBack();
@@ -359,14 +428,15 @@ const AddTransactions = ({ navigation }) => {
   return (
     <ScreenWrapper backgroundColor={COLORS.white}>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Header with improved centering */}
         <View style={styles.header}>
           <BackButton onPress={handleBackPress} />
           <Text style={styles.title}>Add Transactions</Text>
         </View>
 
         <Text style={styles.subText}>
-          You may add your transactions here. Make sure to fill all fields as they improve your overall experience in our application
+          You may add your transactions here. Make sure to fill all fields as
+          they improve your overall experience in our application
         </Text>
 
         <View style={styles.toggleWrapper}>
@@ -415,7 +485,7 @@ const AddTransactions = ({ navigation }) => {
             editable={!isSaving}
           />
 
-          {/* Always show account selection first, regardless of transaction type */}
+          {/* Account selection */}
           <View style={styles.fieldWrapper}>
             <Text style={styles.fieldLabel}>Account</Text>
             {accounts.length === 0 ? (
@@ -430,17 +500,24 @@ const AddTransactions = ({ navigation }) => {
                     <TouchableOpacity
                       style={[
                         styles.iconSliderItem,
-                        selectedAccountIndex === index && styles.selectedIconItem
+                        selectedAccountIndex === index &&
+                          styles.selectedIconItem,
                       ]}
-                      onPress={isSaving ? undefined : () => handleAccountSelection(item.id, index)}
+                      onPress={
+                        isSaving
+                          ? undefined
+                          : () => handleAccountSelection(item.id, index)
+                      }
                       disabled={isSaving}
                     >
-                      <View style={[
-                        styles.iconBubble,
-                        // Use a consistent dark background color for all account types
-                        { backgroundColor: '#333' },
-                        selectedAccountIndex === index && styles.selectedIconBubble
-                      ]}>
+                      <View
+                        style={[
+                          styles.iconBubble,
+                          { backgroundColor: "#333" },
+                          selectedAccountIndex === index &&
+                            styles.selectedIconBubble,
+                        ]}
+                      >
                         <Ionicons name={item.icon} size={24} color="#FFF" />
                       </View>
                       <Text style={styles.iconLabel} numberOfLines={1}>
@@ -457,7 +534,7 @@ const AddTransactions = ({ navigation }) => {
             )}
           </View>
 
-          {/* Show category selection only for expense transactions */}
+          {/* Category selection only for expenses */}
           {transactionType === "Expenses" && (
             <View style={styles.fieldWrapper}>
               <Text style={styles.fieldLabel}>Category</Text>
@@ -468,15 +545,23 @@ const AddTransactions = ({ navigation }) => {
                     <TouchableOpacity
                       style={[
                         styles.iconSliderItem,
-                        selectedCategoryIndex === index && styles.selectedIconItem
+                        selectedCategoryIndex === index &&
+                          styles.selectedIconItem,
                       ]}
-                      onPress={isSaving ? undefined : () => handleCategorySelection(item.label, index)}
+                      onPress={
+                        isSaving
+                          ? undefined
+                          : () => handleCategorySelection(item.label, index)
+                      }
                       disabled={isSaving}
                     >
-                      <View style={[
-                        styles.iconBubble,
-                        selectedCategoryIndex === index && styles.selectedIconBubble
-                      ]}>
+                      <View
+                        style={[
+                          styles.iconBubble,
+                          selectedCategoryIndex === index &&
+                            styles.selectedIconBubble,
+                        ]}
+                      >
                         <Ionicons name={item.name} size={24} color="#333" />
                       </View>
                       <Text style={styles.iconLabel} numberOfLines={1}>
@@ -560,7 +645,7 @@ const styles = StyleSheet.create({
     marginTop: SIZES.padding.large,
   },
   fieldWrapper: {
-    marginBottom: SIZES.padding.small, // Reduced from xlarge to medium
+    marginBottom: SIZES.padding.small,
   },
   fieldLabel: {
     fontSize: SIZES.font.medium,
@@ -627,28 +712,28 @@ const styles = StyleSheet.create({
   iconsSliderContainer: {
     backgroundColor: COLORS.lightGrayBackground,
     borderRadius: SIZES.radius.medium,
-    marginBottom: SIZES.padding.medium, // Reduced from xxlarge to medium
+    marginBottom: SIZES.padding.medium,
   },
   iconsSlider: {
     paddingVertical: 4,
   },
   iconSliderItem: {
     width: 80,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   selectedIconItem: {
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
     borderRadius: SIZES.radius.medium,
   },
   iconBubble: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 8,
   },
   selectedIconBubble: {
@@ -657,10 +742,16 @@ const styles = StyleSheet.create({
   },
   iconLabel: {
     fontSize: SIZES.font.small,
-    fontFamily: 'Poppins-Medium',
+    fontFamily: "Poppins-Medium",
     color: COLORS.darkGray,
-    textAlign: 'center',
-    maxWidth: '100%',
+    textAlign: "center",
+    maxWidth: "100%",
+  },
+  noAccountsText: {
+    fontSize: SIZES.font.medium,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    padding: SIZES.padding.large,
   },
 });
 
