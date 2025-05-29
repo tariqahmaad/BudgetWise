@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react"; // Added useMemo
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -8,256 +8,184 @@ import {
   Dimensions,
   TouchableOpacity,
   FlatList,
+  Animated,
+  Easing,
 } from "react-native";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
-import { COLORS } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import { useAuth } from "../../context/AuthProvider";
-import {
-  firestore,
-  collection,
-  onSnapshot,
-  query,
-  where,
-} from "../../firebase/firebaseConfig";
 import { PieChart } from "react-native-chart-kit";
-import { Ionicons } from "@expo/vector-icons"; 
-import { CATEGORY_ICONS } from "../../constants/theme"; 
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, CATEGORY_ICONS } from "../../constants/theme";
+import { CHART_COLORS, hexToRgba } from "../../constants/chart";
+import { isSameMonth } from "../../hooks/useSameMonth";
+import { subscribeToMonthlyExpenses } from "../../services/transactionService";
 
-const MOCK_CHART_COLORS = [
-  "#FF6384",
-  "#36A2EB",
-  "#FFCE56",
-  "#4BC0C0",
-  "#9966FF",
-  "#FF9F40",
-  "#28B463",
-  "#F39C12",
-  "#8E44AD",
-  "#2980B9",
-];
-
-const hexToRgba = (hex, opacity) => {
-  let r = 0,
-    g = 0,
-    b = 0;
-  if (!hex) hex = "#000000";
-  if (hex.length === 4) {
-    r = parseInt(hex[1] + hex[1], 16);
-    g = parseInt(hex[2] + hex[2], 16);
-    b = parseInt(hex[3] + hex[3], 16);
-  } else if (hex.length === 7) {
-    r = parseInt(hex[1] + hex[2], 16);
-    g = parseInt(hex[3] + hex[4], 16);
-    b = parseInt(hex[5] + hex[6], 16);
-  }
-  return `rgba(${r},${g},${b},${opacity})`;
-};
-
-const screenWidth = Dimensions.get("window").width;
-
-// Dynamically create CATEGORY_ICON_MAP
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
   map[category.label] = category.name;
   return map;
 }, {});
 
-const isSameMonth = (date1, date2) =>
-  date1 instanceof Date &&
-  !isNaN(date1) &&
-  date2 instanceof Date &&
-  !isNaN(date2) &&
-  date1.getFullYear() === date2.getFullYear() &&
-  date1.getMonth() === date2.getMonth();
+const screenWidth = Dimensions.get("window").width;
 
 const SummaryScreen = () => {
   const { user } = useAuth();
+
+  // Animated value for the center percentage
+  const percentAnim = useRef(new Animated.Value(0)).current;
+  const [displayPercentage, setDisplayPercentage] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [categorizedTransactions, setCategorizedTransactions] = useState({});
-  const [selectedIndex, setSelectedIndex] = useState(null); // Default to null to show total expenses
+  const [selectedIndex, setSelectedIndex] = useState(null);
   const [currentDisplayMonth, setCurrentDisplayMonth] = useState(new Date());
   const [allMonthlyExpenses, setAllMonthlyExpenses] = useState([]);
+
+  const [chartScale] = useState(new Animated.Value(0));
+
+  // Reset selectedIndex if out of bounds when chartData changes
+  const chartData = useMemo(
+    () =>
+      Object.entries(categorizedTransactions)
+        .map(([cat, data], i) => ({
+          name: cat,
+          population: parseFloat(data.total.toFixed(2)),
+          color: CHART_COLORS[i % CHART_COLORS.length],
+          legendFontColor: COLORS.text,
+          legendFontSize: 14,
+        }))
+        .sort((a, b) => b.population - a.population),
+    [categorizedTransactions]
+  );
+
+  useEffect(() => {
+    if (selectedIndex !== null && selectedIndex >= chartData.length) {
+      setSelectedIndex(null);
+    }
+  }, [chartData]);
+
+  useEffect(() => {
+    // Chart scale animation
+    Animated.timing(chartScale, {
+      toValue: 1,
+      duration: 600,
+      easing: Easing.out(Easing.exp),
+      useNativeDriver: true,
+    }).start();
+
+    // Listen to percentAnim changes
+    const id = percentAnim.addListener(({ value }) => {
+      setDisplayPercentage(Math.round(value));
+    });
+
+    // Initial count-up from 0 to 100
+    Animated.timing(percentAnim, {
+      toValue: 100,
+      duration: 1000,
+      easing: Easing.out(Easing.exp),
+      useNativeDriver: false,
+    }).start();
+
+    return () => percentAnim.removeListener(id);
+  }, []);
+
+  const totalAmount = useMemo(
+    () =>
+      Object.values(categorizedTransactions).reduce(
+        (sum, grp) => sum + (grp.total || 0),
+        0
+      ),
+    [categorizedTransactions]
+  );
+
+  // Compute center percentage as a string
+  const centerPercentage = useMemo(() => {
+    if (selectedIndex !== null && chartData[selectedIndex]) {
+      return (
+        ((chartData[selectedIndex].population / totalAmount) * 100).toFixed(1) +
+        "%"
+      );
+    }
+    return totalAmount > 0 ? "100%" : "";
+  }, [selectedIndex, chartData, totalAmount]);
+
+  // Animate percentage whenever it changes
+  useEffect(() => {
+    const target = parseFloat(centerPercentage) || 0;
+    Animated.timing(percentAnim, {
+      toValue: target,
+      duration: 300,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    }).start();
+  }, [centerPercentage]);
 
   useEffect(() => {
     if (!user || !user.uid) {
       setLoading(false);
       setCategorizedTransactions({});
-      setAllMonthlyExpenses([]); // <-- Reset on user change
+      setAllMonthlyExpenses([]);
       return;
     }
 
     setLoading(true);
-    const transactionsRef = collection(
-      firestore,
-      "users",
+    const unsubscribe = subscribeToMonthlyExpenses(
       user.uid,
-      "transactions"
-    );
-    const expenseQuery = query(
-      transactionsRef,
-      where("type", "==", "Expenses")
-    );
-
-    const unsubscribe = onSnapshot(
-      expenseQuery,
-      (snapshot) => {
-        const allExpenseTransactions = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-
-        const transactionsForSelectedMonth = allExpenseTransactions.filter(
-          (t) => {
-            let tDate;
-            if (t.date && typeof t.date.toDate === "function") {
-              tDate = t.date.toDate();
-            } else if (t.date) {
-              // Attempt to parse if it's a string or number, assuming it's a valid date representation
-              const parsedDate = new Date(t.date);
-              if (!isNaN(parsedDate)) {
-                tDate = parsedDate;
-              }
-            }
-            return (
-              tDate instanceof Date &&
-              !isNaN(tDate) &&
-              isSameMonth(tDate, currentDisplayMonth)
-            );
+      currentDisplayMonth,
+      (allExpenses) => {
+        const txns = allExpenses.filter((t) => {
+          let d;
+          if (t.date?.toDate) d = t.date.toDate();
+          else if (t.date) {
+            const pd = new Date(t.date);
+            if (!isNaN(pd)) d = pd;
           }
-        );
-        setAllMonthlyExpenses(transactionsForSelectedMonth); // <-- Populate monthly expenses
+          return d && isSameMonth(d, currentDisplayMonth);
+        });
+        setAllMonthlyExpenses(txns);
 
         const grouped = {};
-        transactionsForSelectedMonth.forEach((transaction) => {
-          const amount = parseFloat(transaction.amount);
-          if (isNaN(amount) || amount <= 0) return;
-          const category = transaction.category || "Other";
-          if (!grouped[category]) {
-            grouped[category] = { total: 0 };
-          }
-          grouped[category].total += amount;
+        txns.forEach((tran) => {
+          const amt = parseFloat(tran.amount);
+          if (isNaN(amt) || amt <= 0) return;
+          const cat = tran.category || "Other";
+          if (!grouped[cat]) grouped[cat] = { total: 0 };
+          grouped[cat].total += amt;
         });
-
         setCategorizedTransactions(grouped);
         setLoading(false);
       },
-      (error) => {
-        console.error("Error fetching transactions:", error);
+      () => {
         setLoading(false);
-        setAllMonthlyExpenses([]); // <-- Reset on error
+        setAllMonthlyExpenses([]);
       }
     );
-
     return () => unsubscribe();
   }, [user, currentDisplayMonth]);
 
-  const totalAmount = useMemo(() => {
-    return Object.values(categorizedTransactions).reduce(
-      (sum, grp) => sum + (grp.total || 0),
-      0
-    );
-  }, [categorizedTransactions]);
-
-  const chartData = useMemo(() => {
-    return Object.entries(categorizedTransactions)
-      .map(([cat, data], i) => ({
-        name: cat,
-        population: parseFloat(data.total.toFixed(2)),
-        color: MOCK_CHART_COLORS[i % MOCK_CHART_COLORS.length],
-        legendFontColor: COLORS.text,
-        legendFontSize: 14,
-      }))
-      .sort((a, b) => b.population - a.population);
-  }, [categorizedTransactions]);
-
-  const displayIndex = useMemo(() => {
-    if (selectedIndex !== null) {
-      return selectedIndex;
-    }
-    if (chartData.length > 0 && totalAmount > 0) {
-      return null; // Default to showing total expenses
-    }
-    return null;
-  }, [selectedIndex, chartData, totalAmount]);
-
-  const centerPercentage = useMemo(() => {
-    if (displayIndex !== null && totalAmount > 0 && chartData[displayIndex]) {
-      return (
-        ((chartData[displayIndex].population / totalAmount) * 100).toFixed(1) +
-        "%"
-      );
-    }
-    if (totalAmount > 0) {
-      return "100%"; // Show 100% for total expenses
-    }
-    return "";
-  }, [displayIndex, chartData, totalAmount]);
-
-  const centerCategory = useMemo(() => {
-    if (displayIndex !== null && chartData[displayIndex]) {
-      return chartData[displayIndex].name;
-    }
-    return "Total Expenses"; // Default to "Total Expenses"
-  }, [displayIndex, chartData]);
-
-  const centerAmount = useMemo(() => {
-    if (displayIndex !== null && totalAmount > 0 && chartData[displayIndex]) {
-      return `$${chartData[displayIndex].population.toFixed(2)}`;
-    }
-    if (totalAmount > 0) {
-      return `$${totalAmount.toFixed(2)}`; // Show total expenses amount
-    }
-    return "";
-  }, [displayIndex, chartData, totalAmount]);
-
-  const displayedTransactionsList = useMemo(() => {
-    if (!allMonthlyExpenses) return [];
-
-    let transactionsToDisplay = [...allMonthlyExpenses];
-
+  const displayedTransactions = useMemo(() => {
+    let list = [...allMonthlyExpenses];
     if (selectedIndex !== null && chartData[selectedIndex]) {
-      const selectedCategory = chartData[selectedIndex].name;
-      transactionsToDisplay = transactionsToDisplay.filter(
-        (t) => t.category === selectedCategory
-      );
+      const name = chartData[selectedIndex].name;
+      list = list.filter((t) => t.category === name);
     }
-
-    return transactionsToDisplay.sort((a, b) => {
-      const dateA =
-        a.date && typeof a.date.toDate === "function"
-          ? a.date.toDate()
-          : a.date
-          ? new Date(a.date)
-          : new Date(0);
-      const dateB =
-        b.date && typeof b.date.toDate === "function"
-          ? b.date.toDate()
-          : b.date
-          ? new Date(b.date)
-          : new Date(0);
-      return dateB - dateA;
-    });
+    return list.sort(
+      (a, b) =>
+        new Date(b.date?.toDate?.() || b.date) -
+        new Date(a.date?.toDate?.() || a.date)
+    );
   }, [allMonthlyExpenses, selectedIndex, chartData]);
 
-  const getTransactionDateString = (dateField) => {
-    if (!dateField) return "No Date";
-    let dateObj;
-    if (typeof dateField.toDate === "function") {
-      dateObj = dateField.toDate();
-    } else if (dateField instanceof Date) {
-      dateObj = dateField;
-    } else {
-      dateObj = new Date(dateField);
-    }
-    return !isNaN(dateObj) ? dateObj.toLocaleString() : "Invalid Date"; // Changed to toLocaleString
+  const getDateStr = (df) => {
+    if (!df) return "No Date";
+    const d = df.toDate ? df.toDate() : new Date(df);
+    return isNaN(d) ? "Invalid Date" : d.toLocaleString();
   };
 
-  const renderTransactionItem = ({ item }) => {
-    // Find the color for this category from chartData
-    const categoryData = chartData.find(
-      (chart) => chart.name === item.category
-    );
-    const categoryColor = categoryData ? categoryData.color : COLORS.primary;
+  const renderItem = ({ item }) => {
+    const cd = chartData.find((c) => c.name === item.category);
+    const displayDescription =
+      item.description || item.category || "Uncategorized";
 
     return (
       <View style={styles.transactionCardItem}>
@@ -266,7 +194,9 @@ const SummaryScreen = () => {
             style={[
               styles.transactionIconContainer,
               {
-                backgroundColor: hexToRgba(categoryColor, 0.2), // Use category color with 20% opacity
+                backgroundColor: cd
+                  ? hexToRgba(cd.color, 0.2)
+                  : COLORS.lightGray,
               },
             ]}
           >
@@ -278,13 +208,15 @@ const SummaryScreen = () => {
           </View>
           <View style={styles.transactionDetails}>
             <Text style={styles.transactionDescription} numberOfLines={1}>
-              {item.description || "No Description"}
+              {displayDescription}
             </Text>
-            <Text style={styles.transactionCategoryName}>
-              {item.category || "Uncategorized"}
-            </Text>
+            {item.description && (
+              <Text style={styles.transactionCategoryName}>
+                {item.category || "Uncategorized"}
+              </Text>
+            )}
             <Text style={styles.transactionDateText}>
-              {getTransactionDateString(item.date)}
+              {getDateStr(item.date)}
             </Text>
           </View>
         </View>
@@ -297,17 +229,14 @@ const SummaryScreen = () => {
     );
   };
 
-  const goToPreviousMonth = () => {
+  const prevMonth = () =>
     setCurrentDisplayMonth(
-      (prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() - 1, 1)
+      (p) => new Date(p.getFullYear(), p.getMonth() - 1, 1)
     );
-  };
-
-  const goToNextMonth = () => {
+  const nextMonth = () =>
     setCurrentDisplayMonth(
-      (prevDate) => new Date(prevDate.getFullYear(), prevDate.getMonth() + 1, 1)
+      (p) => new Date(p.getFullYear(), p.getMonth() + 1, 1)
     );
-  };
 
   if (loading) {
     return (
@@ -327,10 +256,7 @@ const SummaryScreen = () => {
         <Text style={styles.title}>Summary</Text>
       </View>
       <View style={styles.monthSelectorContainer}>
-        <TouchableOpacity
-          onPress={goToPreviousMonth}
-          style={styles.monthButton}
-        >
+        <TouchableOpacity onPress={prevMonth} style={styles.monthButton}>
           <Text style={styles.monthButtonText}>{"< Prev"}</Text>
         </TouchableOpacity>
         <Text style={styles.monthDisplayText}>
@@ -339,13 +265,18 @@ const SummaryScreen = () => {
             year: "numeric",
           })}
         </Text>
-        <TouchableOpacity onPress={goToNextMonth} style={styles.monthButton}>
+        <TouchableOpacity onPress={nextMonth} style={styles.monthButton}>
           <Text style={styles.monthButtonText}>{"Next >"}</Text>
         </TouchableOpacity>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {chartData.length > 0 && totalAmount > 0 ? (
-          <View style={styles.chartWrapper}>
+          <Animated.View
+            style={[
+              styles.chartWrapper,
+              { transform: [{ scale: chartScale }] },
+            ]}
+          >
             <PieChart
               data={chartData}
               width={screenWidth - 40}
@@ -354,8 +285,8 @@ const SummaryScreen = () => {
                 backgroundColor: COLORS.appBackground,
                 backgroundGradientFrom: COLORS.appBackground,
                 backgroundGradientTo: COLORS.appBackground,
-                color: (opacity = 1) => hexToRgba(COLORS.text, opacity),
-                labelColor: (opacity = 1) => hexToRgba(COLORS.text, opacity),
+                color: (o = 1) => hexToRgba(COLORS.text, o),
+                labelColor: (o = 1) => hexToRgba(COLORS.text, o),
               }}
               accessor="population"
               backgroundColor="transparent"
@@ -363,40 +294,39 @@ const SummaryScreen = () => {
               absolute
               paddingLeft={(screenWidth - 40) * 0.25}
               style={styles.pieChartStyle}
-              onDataPointClick={({ index }) => {
-                setSelectedIndex(index === selectedIndex ? null : index);
-              }}
+              onDataPointClick={({ index }) =>
+                setSelectedIndex(index === selectedIndex ? null : index)
+              }
             />
             <View style={styles.centerOverlay}>
               <View style={styles.doughnutHole} />
               <View style={styles.centerTextView}>
-                {centerPercentage !== "" && (
-                  <Text style={styles.centerPercentageText}>
-                    {centerPercentage}
-                  </Text>
-                )}
-                {centerAmount !== "" && (
+                <Text style={styles.centerPercentageText}>
+                  {displayPercentage}%
+                </Text>
+                {totalAmount > 0 && (
                   <Text
                     style={[
                       styles.centerAmountText,
                       {
-                        color: chartData[displayIndex]
-                          ? chartData[displayIndex].color
-                          : COLORS.primary,
+                        color:
+                          chartData[selectedIndex]?.color || COLORS.primary,
                       },
                     ]}
                   >
-                    {centerAmount}
+                    {selectedIndex != null && chartData[selectedIndex]
+                      ? `$${chartData[selectedIndex].population.toFixed(2)}`
+                      : `$${totalAmount.toFixed(2)}`}
                   </Text>
                 )}
-                {centerCategory !== "" && (
-                  <Text style={styles.centerCategoryText}>
-                    {centerCategory}
-                  </Text>
-                )}
+                <Text style={styles.centerCategoryText}>
+                  {selectedIndex != null && chartData[selectedIndex]?.name
+                    ? chartData[selectedIndex].name
+                    : "Total Expenses"}
+                </Text>
               </View>
             </View>
-          </View>
+          </Animated.View>
         ) : (
           <View style={styles.emptyChartContainer}>
             <Text style={styles.emptyChartText}>
@@ -433,26 +363,24 @@ const SummaryScreen = () => {
         {allMonthlyExpenses.length > 0 && (
           <View style={styles.transactionsSection}>
             <Text style={styles.transactionsTitle}>
-              {selectedIndex !== null && chartData[selectedIndex]
+              {selectedIndex != null && chartData[selectedIndex]
                 ? `Transactions for ${chartData[selectedIndex].name}`
                 : "Monthly Transactions"}
             </Text>
             <View style={styles.separator} />
-            {displayedTransactionsList.length > 0 ? (
+            {displayedTransactions.length > 0 ? (
               <FlatList
-                data={displayedTransactionsList}
-                renderItem={renderTransactionItem}
+                data={displayedTransactions}
+                renderItem={renderItem}
                 keyExtractor={(item) => item.id.toString()}
-                scrollEnabled={false} // Important if FlatList is inside ScrollView
-                ItemSeparatorComponent={() => <View style={{ height: 10 }} />} // Adds space between card items
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
               />
             ) : (
               <Text style={styles.emptyTransactionsText}>
-                {
-                  selectedIndex !== null && chartData[selectedIndex]
-                    ? `No transactions found for ${chartData[selectedIndex].name} this month.`
-                    : "No transactions found for this month." // This case might not be hit if allMonthlyExpenses.length > 0
-                }
+                {selectedIndex != null && chartData[selectedIndex]
+                  ? `No transactions found for ${chartData[selectedIndex].name} this month.`
+                  : "No transactions found for this month."}
               </Text>
             )}
           </View>
@@ -640,18 +568,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: COLORS.white, // Using cardBackground from theme
-    padding: 12,
-    borderRadius: 12,
-    // marginBottom: 10, // Replaced by ItemSeparatorComponent in FlatList
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
+    paddingVertical: 12,
+    paddingHorizontal: 5,
   },
   transactionLeft: {
     flexDirection: "row",
