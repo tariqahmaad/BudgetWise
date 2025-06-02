@@ -712,7 +712,7 @@ const DebtDetails = ({ navigation, route }) => {
           {isBalanced ? (
             <>
               <Text style={styles.sectionHeader}>
-                {activeTab === "send" ? "✅ No Debts to Pay" : "✅ No Payments to Receive"}
+                {activeTab === "send" ? "No Debts to Pay" : " No Payments to Receive"}
               </Text>
               <View style={[styles.debtCard, { width: CARD_WIDTH, backgroundColor: COLORS.lightGray }]}>
                 <View style={styles.debtCardContent}>

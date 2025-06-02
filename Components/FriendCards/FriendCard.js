@@ -1,10 +1,16 @@
-// 
+//
 
-
-//new code 
+//new code
 
 import React, { useRef } from "react";
-import { View, Text, StyleSheet, Image, Pressable, Animated } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Pressable,
+  Animated,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 const RED = "#E53935"; // Strong red color
@@ -56,6 +62,9 @@ const FriendCard = ({
   isFavorite = false,
   onPress,
   noShadow = false,
+  showAmounts = true, // New prop to control amount visibility
+  youOweAmount = 0, // New prop for "Your owe" amount
+  theyOweAmount = 0, // New prop for "They owe" amount
 }) => {
   const isOverdue = isDebtOverdue(dueDate);
   const isDueToday = isDebtDueToday(dueDate);
@@ -98,7 +107,9 @@ const FriendCard = ({
           <Image source={avatar} style={styles.avatar} />
           <View style={styles.textContainer}>
             <View style={styles.nameContainer}>
-              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                {name}
+              </Text>
               {isFavorite && (
                 <Ionicons
                   name="star"
@@ -108,7 +119,9 @@ const FriendCard = ({
                 />
               )}
             </View>
-            <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">{email}</Text>
+            <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">
+              {email}
+            </Text>
           </View>
         </View>
         <View style={styles.right}>
@@ -123,9 +136,37 @@ const FriendCard = ({
             </Text>
           )}
           {showDueTodayLabel && (
-            <Text style={[styles.status, { color: "#FDB347" }]}>
-              due today
-            </Text>
+            <Text style={[styles.status, { color: "#FDB347" }]}>due today</Text>
+          )}
+          {showAmounts && (youOweAmount > 0 || theyOweAmount > 0) && (
+            <View style={{ marginTop: 6, alignItems: "flex-end" }}>
+              {youOweAmount > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="arrow-up-outline"
+                    size={16}
+                    color="#E53935" // red
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={{ color: "red", fontWeight: "bold", fontSize: 13 }}>
+                    ${youOweAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+              {theyOweAmount > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="arrow-down-outline"
+                    size={16}
+                    color="#1BC47D" // green
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={{ color: "green", fontWeight: "bold", fontSize: 13 }}>
+                    ${theyOweAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -138,14 +179,22 @@ const FriendCard = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-    // android_ripple={{ color: "#eee", borderless: false }} // Ripple is handled by parent Pressable in Debts.js/DebtTracking.js
+      // android_ripple={{ color: "#eee", borderless: false }} // Ripple is handled by parent Pressable in Debts.js/DebtTracking.js
     >
-      <Animated.View style={[styles.card, noShadow && styles.cardNoShadow, { transform: [{ scale: scaleValue }] }]}>
+      <Animated.View
+        style={[
+          styles.card,
+          noShadow && styles.cardNoShadow,
+          { transform: [{ scale: scaleValue }] },
+        ]}
+      >
         <View style={styles.left}>
           <Image source={avatar} style={styles.avatar} />
           <View style={styles.textContainer}>
             <View style={styles.nameContainer}>
-              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">{name}</Text>
+              <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+                {name}
+              </Text>
               {isFavorite && (
                 <Ionicons
                   name="star"
@@ -155,7 +204,9 @@ const FriendCard = ({
                 />
               )}
             </View>
-            <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">{email}</Text>
+            <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">
+              {email}
+            </Text>
           </View>
         </View>
         <View style={styles.right}>
@@ -170,9 +221,37 @@ const FriendCard = ({
             </Text>
           )}
           {showDueTodayLabel && (
-            <Text style={[styles.status, { color: "#FDB347" }]}>
-              due today
-            </Text>
+            <Text style={[styles.status, { color: "#FDB347" }]}>due today</Text>
+          )}
+          {showAmounts && (youOweAmount > 0 || theyOweAmount > 0) && (
+            <View style={{ marginTop: 6, alignItems: "flex-end" }}>
+              {youOweAmount > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="arrow-up-outline"
+                    size={16}
+                    color="#E53935" // red
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={{ color: "red", fontWeight: "bold", fontSize: 13 }}>
+                    ${youOweAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+              {theyOweAmount > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons
+                    name="arrow-down-outline"
+                    size={16}
+                    color="#1BC47D" // green
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text style={{ color: "green", fontWeight: "bold", fontSize: 13 }}>
+                    ${theyOweAmount.toFixed(2)}
+                  </Text>
+                </View>
+              )}
+            </View>
           )}
         </View>
       </Animated.View>
@@ -230,8 +309,9 @@ const styles = StyleSheet.create({
   },
   right: {
     alignItems: "flex-end",
-    minWidth: 80,
-    maxWidth: 120,
+    minWidth: 110,
+    maxWidth: 150,
+    justifyContent: "center",
   },
   amount: {
     fontSize: 18,
@@ -243,7 +323,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 2,
     fontFamily: "Poppins-Medium",
-    textTransform: 'lowercase',
+    textTransform: "lowercase",
   },
   cardNoShadow: {
     shadowColor: "black",

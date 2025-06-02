@@ -303,60 +303,50 @@ const DebtTracking = ({ navigation }) => {
     };
   }, [user]);
 
-  const { totalYouOwe, totalOwedToYou, oweList, owedList } =
-    useMemo(() => {
-      let totalYouOwe = 0,
-        totalOwedToYou = 0;
-      let oweList = [];
-      let owedList = [];
+  const { totalYouOwe, totalOwedToYou, oweList, owedList } = useMemo(() => {
+    let totalYouOwe = 0;
+    let totalOwedToYou = 0;
+    let oweList = [];
+    let owedList = [];
 
-      // Add debugging
-      logDebtCalculations(friends, debts);
+    friends.forEach((friend) => {
+      const friendDebts = debts[friend.id] || [];
+      const validDebts = getValidUnpaidDebts(friendDebts);
 
-      friends.forEach((friend) => {
-        const friendDebts = debts[friend.id] || [];
+      // Sum all unpaid debts where you owe them
+      const youOweAmount = validDebts
+        .filter((d) => d.type === "Debt")
+        .reduce((sum, d) => sum + d.amount, 0);
 
-        // Use utility function for validation
-        const validDebts = getValidUnpaidDebts(friendDebts);
+      // Sum all unpaid debts where they owe you
+      const theyOweAmount = validDebts
+        .filter((d) => d.type === "Credit")
+        .reduce((sum, d) => sum + d.amount, 0);
 
-        const unpaidYouOwe = validDebts.filter((d) => d.type === "Debt");
-        const unpaidTheyOwe = validDebts.filter((d) => d.type === "Credit");
+      if (youOweAmount > 0) {
+        totalYouOwe += youOweAmount;
+        oweList.push({
+          friend,
+          amount: youOweAmount,
+          debts: validDebts.filter((d) => d.type === "Debt"),
+          youOweAmount,
+          theyOweAmount,
+        });
+      }
+      if (theyOweAmount > 0) {
+        totalOwedToYou += theyOweAmount;
+        owedList.push({
+          friend,
+          amount: theyOweAmount,
+          debts: validDebts.filter((d) => d.type === "Credit"),
+          youOweAmount,
+          theyOweAmount,
+        });
+      }
+    });
 
-        const youOweAmount = unpaidYouOwe.reduce((sum, d) => sum + d.amount, 0);
-        const theyOweAmount = unpaidTheyOwe.reduce((sum, d) => sum + d.amount, 0);
-
-        // Calculate net amounts properly
-        const netAmount = youOweAmount - theyOweAmount;
-
-        if (netAmount > 0) {
-          // You owe them more (net debt)
-          totalYouOwe += netAmount;
-          oweList.push({
-            friend,
-            amount: netAmount,
-            debts: unpaidYouOwe,
-            netAmount: netAmount,
-            youOweAmount,
-            theyOweAmount
-          });
-        } else if (netAmount < 0) {
-          // They owe you more (net credit)
-          const absNetAmount = Math.abs(netAmount);
-          totalOwedToYou += absNetAmount;
-          owedList.push({
-            friend,
-            amount: absNetAmount,
-            debts: unpaidTheyOwe,
-            netAmount: absNetAmount,
-            youOweAmount,
-            theyOweAmount
-          });
-        }
-        // If netAmount === 0, both amounts cancel out, so no entry in either list
-      });
-
-      return { totalYouOwe, totalOwedToYou, oweList, owedList };
-    }, [debts, friends, logDebtCalculations, getValidUnpaidDebts]);
+    return { totalYouOwe, totalOwedToYou, oweList, owedList };
+  }, [debts, friends, getValidUnpaidDebts]);
 
   const handleBackPress = useCallback(() => {
     navigation.navigate("HomeScreen");
@@ -374,7 +364,6 @@ const DebtTracking = ({ navigation }) => {
       key: "owe",
       title: "Total You Owe",
       amount: `$${totalYouOwe.toFixed(2)}`,
-      description: "Tap to view & pay",
       amountColor: COLORS.LightRed,
       backgroundColor: COLORS.DeepRed,
       onPress: () => handleDebtCardPress("owe"),
@@ -383,7 +372,6 @@ const DebtTracking = ({ navigation }) => {
       key: "owed",
       title: "Total Owed To You",
       amount: `$${totalOwedToYou.toFixed(2)}`,
-      description: "Tap to view & receive",
       amountColor: COLORS.LightGreen,
       backgroundColor: COLORS.DeepGreen,
       onPress: () => handleDebtCardPress("owed"),
@@ -392,7 +380,7 @@ const DebtTracking = ({ navigation }) => {
 
   // Debt Card render for FlatList (horizontal) - Updated to match HomeScreen pattern
   const renderDebtCard = useCallback(({ item, index }) => (
-    <Pressable onPress={item.onPress} style={styles.debtCardPressable}>
+    <Pressable style={styles.debtCardPressable}>
       <MainCard
         title={item.title}
         amount={item.amount}
@@ -427,23 +415,13 @@ const DebtTracking = ({ navigation }) => {
     const friendDebts = debts[friend.id] || [];
     const validDebts = getValidUnpaidDebts(friendDebts);
 
-    const youOweDebts = validDebts.filter((d) => d.type === "Debt");
-    const theyOweDebts = validDebts.filter((d) => d.type === "Credit");
+    const youOweAmount = validDebts
+      .filter((d) => d.type === "Debt")
+      .reduce((sum, d) => sum + d.amount, 0);
 
-    const youOweAmount = youOweDebts.reduce((sum, d) => sum + d.amount, 0);
-    const theyOweAmount = theyOweDebts.reduce((sum, d) => sum + d.amount, 0);
-
-    // Calculate net amount
-    const netAmount = youOweAmount - theyOweAmount;
-
-    // Determine what to show on the card
-    let displayAmount = null;
-    let youOwe = false;
-
-    if (Math.abs(netAmount) > 0.01) { // Only show if there's a meaningful net amount
-      displayAmount = Math.abs(netAmount);
-      youOwe = netAmount > 0; // Positive means you owe them more
-    }
+    const theyOweAmount = validDebts
+      .filter((d) => d.type === "Credit")
+      .reduce((sum, d) => sum + d.amount, 0);
 
     return (
       <View style={{ marginBottom: 12 }}>
@@ -451,13 +429,11 @@ const DebtTracking = ({ navigation }) => {
           avatar={require("../../../assets/Avatar01.png")}
           name={friend.name}
           email={friend.email}
-          debtAmount={displayAmount}
-          youOwe={youOwe}
           isFavorite={friend.isFavorite}
-          onPress={() => {
-            // Open friend action modal
-            openModal(friend);
-          }}
+          youOweAmount={youOweAmount}      // <-- must be a number
+          theyOweAmount={theyOweAmount}    // <-- must be a number
+          showAmounts={true}               // <-- must be true
+          onPress={() => openModal(friend)}
         />
       </View>
     );
@@ -718,23 +694,15 @@ const DebtTracking = ({ navigation }) => {
                             email={selectedFriend.email}
                             noShadow={true}
                             isFavorite={selectedFriend.isFavorite}
-                            debtAmount={(() => {
+                            youOweAmount={(() => {
                               const friendDebts = debts[selectedFriend.id] || [];
                               const validDebts = getValidUnpaidDebts(friendDebts);
-                              const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
-                              const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
-
-                              const netAmount = youOweAmount - theyOweAmount;
-                              return Math.abs(netAmount) > 0.01 ? Math.abs(netAmount) : null;
+                              return validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
                             })()}
-                            youOwe={(() => {
+                            theyOweAmount={(() => {
                               const friendDebts = debts[selectedFriend.id] || [];
                               const validDebts = getValidUnpaidDebts(friendDebts);
-                              const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
-                              const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
-
-                              const netAmount = youOweAmount - theyOweAmount;
-                              return netAmount > 0; // Positive means you owe them more
+                              return validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
                             })()}
                           />
                         </Animated.View>
