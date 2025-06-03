@@ -72,7 +72,11 @@ const AboutScreen = ({ navigation }) => {
           {/* App Info */}
           <View style={styles.appInfoContainer}>
             <View style={styles.appIcon}>
-              <Ionicons name="wallet-outline" size={40} color={COLORS.primary || "#007AFF"} />
+              <Ionicons
+                name="wallet-outline"
+                size={40}
+                color={COLORS.primary || "#007AFF"}
+              />
             </View>
             <Text style={styles.appName}>BudgetWise</Text>
             <Text style={styles.appTagline}>Personal Finance Made Simple</Text>
@@ -83,9 +87,10 @@ const AboutScreen = ({ navigation }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>About This App</Text>
             <Text style={styles.aboutText}>
-              BudgetWise is a personal finance management app designed to help you 
-              track your spending, manage multiple accounts, and achieve your financial 
-              goals. Built with React Native and powered by Firebase for secure data storage.
+              BudgetWise is a personal finance management app designed to help
+              you track your spending, manage multiple accounts, and achieve
+              your financial goals. Built with React Native and powered by
+              Firebase for secure data storage.
             </Text>
           </View>
 
@@ -93,11 +98,25 @@ const AboutScreen = ({ navigation }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Development Team</Text>
             <TeamMember
-              name="Your Name" // Replace with actual names
+              name="Tariq Ahmad"
+              role="Software Engineer (AI/Security Focus)"
+              email="tariq_muzamil@live.com"
+              github="https://github.com/tariqahmaad"
+              linkedin="https://www.linkedin.com/in/tariq-ahmad-a43320264/"
+            />
+            <TeamMember
+              name="Mohammad Rauf"
+              role="Full-Stack Developer (AI/ML Focus)"
+              email="itmrauf@gmail.com"
+              github="https://github.com/MohammadRauf0"
+              linkedin="https://www.linkedin.com/in/mohammad-rauf-82270b2b5/" // Updated with the provided URL
+            />
+            <TeamMember
+              name="Daniah Ayad Tareq Al-Sultani"
               role="Lead Developer & Designer"
-              email="developer@budgetwise.com"
-              github="https://github.com/yourusername"
-              linkedin="https://linkedin.com/in/yourprofile"
+              email="daniaayad728@gmail.com"
+              github="https://github.com/Cactuskiller"
+              linkedin="https://linkedin.com/in/dania-ayad"
             />
             {/* Add more team members as needed */}
           </View>
@@ -108,7 +127,9 @@ const AboutScreen = ({ navigation }) => {
             <View style={styles.techContainer}>
               <View style={styles.techItem}>
                 <Text style={styles.techName}>React Native</Text>
-                <Text style={styles.techDesc}>Cross-platform mobile framework</Text>
+                <Text style={styles.techDesc}>
+                  Cross-platform mobile framework
+                </Text>
               </View>
               <View style={styles.techItem}>
                 <Text style={styles.techName}>Firebase</Text>
@@ -128,7 +149,11 @@ const AboutScreen = ({ navigation }) => {
               style={styles.contactButton}
               onPress={() => Linking.openURL("mailto:support@budgetwise.com")}
             >
-              <Ionicons name="mail-outline" size={20} color={COLORS.primary || "#007AFF"} />
+              <Ionicons
+                name="mail-outline"
+                size={20}
+                color={COLORS.primary || "#007AFF"}
+              />
               <Text style={styles.contactText}>support@budgetwise.com</Text>
             </TouchableOpacity>
           </View>
@@ -139,9 +164,9 @@ const AboutScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.white 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
   },
   header: {
     flexDirection: "row",
