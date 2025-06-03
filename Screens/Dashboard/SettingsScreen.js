@@ -15,7 +15,6 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
-import BackButton from "../../Components/Buttons/BackButton";
 import {
   auth,
   firestore,
@@ -102,28 +101,8 @@ const SettingsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.leftContainer}>
-            <BackButton onPress={() => navigation.goBack()} />
-          </View>
           <View style={styles.centerContainer}>
             <Text style={styles.headerTitle}>Settings</Text>
-          </View>
-          <View style={styles.rightContainer}>
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={handleSignOut}
-              disabled={isSigningOut}
-            >
-              {isSigningOut ? (
-                <ActivityIndicator size="small" color={COLORS.danger} />
-              ) : (
-                <Ionicons
-                  name="log-out-outline"
-                  size={24}
-                  color={COLORS.danger}
-                />
-              )}
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -142,6 +121,9 @@ const SettingsScreen = () => {
                 title="My Profile"
                 onPress={() => navigation.navigate("Profile")}
               />
+              <Text style={styles.settingDescription}>
+                Manage your personal information and account preferences
+              </Text>
             </View>
 
             {/* Financial Management */}
@@ -197,6 +179,10 @@ const SettingsScreen = () => {
                 title="Privacy Policy"
                 onPress={() => navigation.navigate("PrivacyPolicy")}
               />
+              <Text style={styles.settingDescription}>
+                Secure your account with password changes, biometric login, and
+                privacy settings
+              </Text>
             </View>
 
             {/* Support & About */}
@@ -218,6 +204,33 @@ const SettingsScreen = () => {
                 onPress={() => navigation.navigate("About")}
                 rightIcon="chevron-forward-outline"
               />
+              <Text style={styles.settingDescription}>
+                Access help resources, contact support, and learn about the
+                development team
+              </Text>
+            </View>
+
+            {/* Account Actions */}
+            <SectionHeader title="Account Actions" />
+            <View style={styles.settingsGroup}>
+              <SettingListItem
+                icon="log-out-outline"
+                iconColor="#FF3B30"
+                title="Sign Out"
+                subtitle={
+                  isSigningOut ? "Signing out..." : "Sign out of your account"
+                }
+                onPress={handleSignOut}
+                rightComponent={
+                  isSigningOut ? (
+                    <ActivityIndicator size="small" color="#FF3B30" />
+                  ) : null
+                }
+                disabled={isSigningOut}
+              />
+              <Text style={styles.settingDescription}>
+                Sign out of your BudgetWise account on this device
+              </Text>
             </View>
           </ScrollView>
         </Animated.View>
@@ -235,41 +248,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: Platform.OS === "ios" ? 50 : 20,
     paddingHorizontal: SIZES.padding.xxlarge,
-    paddingVertical: SIZES.padding.xxlarge,
+    paddingVertical: SIZES.padding.large, // Changed from xxlarge to large
     backgroundColor: COLORS.white,
   },
-  leftContainer: {
-    flex: 1,
-    alignItems: "flex-start",
-  },
   centerContainer: {
-    flex: 2,
-    alignItems: "center",
-  },
-  rightContainer: {
     flex: 1,
-    alignItems: "flex-end",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: "Poppins-SemiBold",
     color: "#000",
   },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F2F2F7",
-    justifyContent: "center",
-    alignItems: "center",
-  },
   content: { flex: 1, paddingHorizontal: 16 },
-  scrollContentContainer: { paddingTop: 20, paddingBottom: 80 },
+  scrollContentContainer: {
+    paddingTop: 8, // Reduced from 20 to 8
+    paddingBottom: 80,
+  },
   sectionHeader: {
     fontSize: 16,
     fontFamily: "Poppins-Medium",
     color: "#8E8E93",
-    marginTop: 24,
+    marginTop: 16, // Reduced from 24 to 16
     marginBottom: 8,
   },
   settingsGroup: {
