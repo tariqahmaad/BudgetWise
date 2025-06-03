@@ -19,9 +19,7 @@ import React, {
   useRef,
 } from "react";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
-import { COLORS, CATEGORY_ICONS, SIZES
-  
- } from "../../constants/theme";
+import { COLORS, CATEGORY_ICONS, SIZES } from "../../constants/theme";
 import MainCard from "../../Components/CategoryCards/MainCard";
 import SubCard from "../../Components/CategoryCards/SubCard";
 import { Ionicons } from "@expo/vector-icons";

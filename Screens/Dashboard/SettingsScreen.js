@@ -175,9 +175,7 @@ const SettingsScreen = () => {
                 icon="lock-closed-outline"
                 iconColor="#FF3B30"
                 title="Change Password"
-                onPress={() =>
-                  Alert.alert("Password", "Navigate to Change Password")
-                }
+                onPress={() => navigation.navigate("ChangePassword")}
               />
               <SettingListItem
                 icon="finger-print-outline"
@@ -197,32 +195,28 @@ const SettingsScreen = () => {
                 icon="document-text-outline"
                 iconColor="#8E8E93"
                 title="Privacy Policy"
-                onPress={() =>
-                  Alert.alert("Privacy", "Navigate to Privacy Policy")
-                }
+                onPress={() => navigation.navigate("PrivacyPolicy")}
               />
             </View>
 
-            {/* Support & Feedback */}
-            <SectionHeader title="Support & Feedback" />
+            {/* Support & About */}
+            <SectionHeader title="Support & About" />
             <View style={styles.settingsGroup}>
               <SettingListItem
                 icon="help-circle-outline"
                 iconColor="#007AFF"
-                title="Help & FAQ"
-                onPress={() => Alert.alert("Help", "Navigate to Help Center")}
+                title="Help & Support"
+                subtitle="Get help, contact us, and learn more"
+                onPress={() => navigation.navigate("Support")}
+                rightIcon="chevron-forward-outline"
               />
               <SettingListItem
-                icon="mail-outline"
+                icon="information-circle-outline"
                 iconColor="#34C759"
-                title="Contact Support"
-                onPress={() => Alert.alert("Contact Us", "Show Contact Info")}
-              />
-              <SettingListItem
-                icon="star-outline"
-                iconColor="#FF9500"
-                title="Rate the App"
-                onPress={() => Alert.alert("Rate App", "Navigate to App Store")}
+                title="About BudgetWise"
+                subtitle="App version and credits"
+                onPress={() => navigation.navigate("About")}
+                rightIcon="chevron-forward-outline"
               />
             </View>
           </ScrollView>

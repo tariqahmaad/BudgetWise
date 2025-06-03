@@ -22,7 +22,10 @@ import DebtDetails from "../Screens/Dashboard/SubMenu/DebtDetails";
 import ManageAccountsScreen from "../Screens/Settings/ManageAccountsScreen"
 import ManageTransactionsScreen from "../Screens/Settings/ManageTransactionsScreen"
 import EditTransactionScreen from "../Screens/Settings/EditTransactionScreen"
-
+import ChangePasswordScreen from "../Screens/Settings/ChangePasswordScreen"
+import PrivacyPolicyScreen from "../Screens/Settings/PrivacyPolicyScreen"
+import SupportScreen from "../Screens/Settings/SupportScreen"
+import AboutScreen from "../Screens/Settings/AboutScreen"
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
 
@@ -70,6 +73,10 @@ const DashboardStack = () => (
     <Stack.Screen name="ManageAccounts" component={ManageAccountsScreen} />
     <Stack.Screen name="ManageTransactions" component={ManageTransactionsScreen} />
     <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
+    <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+    <Stack.Screen name="Support" component={SupportScreen} />
+    <Stack.Screen name="About" component={AboutScreen} />
   </Stack.Navigator>
 );
 
