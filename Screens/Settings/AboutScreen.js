@@ -99,7 +99,7 @@ const AboutScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>Development Team</Text>
             <TeamMember
               name="Tariq Ahmad"
-              role="Software Engineer (AI/Security Focus)"
+              role="Senior Software Engineer (AI/Security Focus)"
               email="tariq_muzamil@live.com"
               github="https://github.com/tariqahmaad"
               linkedin="https://www.linkedin.com/in/tariq-ahmad-a43320264/"
@@ -113,7 +113,7 @@ const AboutScreen = ({ navigation }) => {
             />
             <TeamMember
               name="Daniah Ayad Tareq Al-Sultani"
-              role="Lead Developer & Designer"
+              role="Lead Developer & Algorithm Designer"
               email="daniaayad728@gmail.com"
               github="https://github.com/Cactuskiller"
               linkedin="https://linkedin.com/in/dania-ayad"
@@ -147,14 +147,14 @@ const AboutScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>Get in Touch</Text>
             <TouchableOpacity
               style={styles.contactButton}
-              onPress={() => Linking.openURL("mailto:support@budgetwise.com")}
+              onPress={() => Linking.openURL("mailto:tariq_muzamil@live.com")}
             >
               <Ionicons
                 name="mail-outline"
                 size={20}
                 color={COLORS.primary || "#007AFF"}
               />
-              <Text style={styles.contactText}>support@budgetwise.com</Text>
+              <Text style={styles.contactText}>tariq_muzamil@live.com</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

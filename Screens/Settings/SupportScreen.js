@@ -16,7 +16,7 @@ import { COLORS, SIZES } from "../../constants/theme";
 
 const SupportScreen = ({ navigation }) => {
   const handleEmailPress = () => {
-    Linking.openURL("mailto:support@budgetwise.com");
+    Linking.openURL("mailto:tariq_muzamil@live.com");
   };
 
   const handleFAQPress = () => {
@@ -27,7 +27,9 @@ const SupportScreen = ({ navigation }) => {
   const handleReportBugPress = () => {
     const subject = "Bug Report - BudgetWise";
     const body = "Please describe the issue you encountered:\n\n";
-    Linking.openURL(`mailto:support@budgetwise.com?subject=${subject}&body=${body}`);
+    Linking.openURL(
+      `mailto:tariq_muzamil@live.com?subject=${subject}&body=${body}`
+    );
   };
 
   const SupportOption = ({ icon, iconColor, title, subtitle, onPress }) => (
@@ -110,7 +112,9 @@ const SupportScreen = ({ navigation }) => {
           {/* App Info */}
           <View style={styles.infoContainer}>
             <Text style={styles.infoTitle}>BudgetWise</Text>
-            <Text style={styles.infoSubtitle}>Personal Finance Made Simple</Text>
+            <Text style={styles.infoSubtitle}>
+              Personal Finance Made Simple
+            </Text>
             <Text style={styles.infoVersion}>Version 1.0.0</Text>
           </View>
         </ScrollView>
@@ -120,9 +124,9 @@ const SupportScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.white 
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.white,
   },
   header: {
     flexDirection: "row",
