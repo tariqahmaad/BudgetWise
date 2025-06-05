@@ -30,6 +30,7 @@ import { orderBy, limit } from "firebase/firestore";
 import { COLORS, SIZES, SHADOWS, CATEGORY_ICONS } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import BackButton from "../../Components/Buttons/BackButton";
+import { cleanupEmptyCategories } from "../../services/transactionService";
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -268,10 +269,10 @@ const ManageTransactionsScreen = () => {
     return isNaN(date.getTime())
       ? "Invalid Date"
       : date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
   };
 
   // Add this new function to format the creation time
@@ -384,6 +385,9 @@ const ManageTransactionsScreen = () => {
         // Refresh data to show updated balances
         await fetchTransactions(true);
 
+        // Clean up empty categories
+        await cleanupEmptyCategories(user.uid);
+
         Alert.alert(
           "Success",
           "Transaction deleted and account balance updated."
@@ -479,10 +483,25 @@ const ManageTransactionsScreen = () => {
 
     // Check if transaction has a description (like HomeScreen)
     const hasDescription = item.description && item.description.trim() !== "";
-    const displayName = hasDescription
-      ? item.description
-      : item.category || "Uncategorized";
-    const shouldShowCategory = hasDescription;
+
+    // Handle display logic based on transaction type
+    let displayName, shouldShowCategory;
+
+    if (item.type === "Income") {
+      // For income transactions: show description if available, otherwise show account name
+      displayName = hasDescription
+        ? item.description
+        : item.accountName || accountTitle || "Income";
+      // Show account name as category when there's a description
+      shouldShowCategory = hasDescription;
+    } else {
+      // For expense transactions: show description if available, otherwise show category
+      displayName = hasDescription
+        ? item.description
+        : item.category || "Uncategorized";
+      // Show category when there's a description
+      shouldShowCategory = hasDescription;
+    }
 
     // Find account title
     const account = accounts.find((acc) => acc.id === item.accountId);
@@ -535,7 +554,9 @@ const ManageTransactionsScreen = () => {
               </Text>
               {shouldShowCategory && (
                 <Text style={styles.transactionCategory}>
-                  {item.category || "Uncategorized"}
+                  {item.type === "Income"
+                    ? item.accountName || accountTitle || "Account"
+                    : item.category || "Uncategorized"}
                 </Text>
               )}
               <Text style={styles.transactionMeta}>

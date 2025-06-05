@@ -30,6 +30,7 @@ import CustomButton from "../../Components/Buttons/CustomButton";
 import ToggleSwitch from "../../Components/Buttons/ToggleSwitch";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { cleanupEmptyCategories } from "../../services/transactionService";
 
 const EditTransactionScreen = () => {
   const navigation = useNavigation();
@@ -96,8 +97,8 @@ const EditTransactionScreen = () => {
             doc.data().type === "balance"
               ? "wallet-sharp"
               : doc.data().type === "income_tracker"
-              ? "stats-chart"
-              : "trophy",
+                ? "stats-chart"
+                : "trophy",
         }));
         setAccounts(accountsList);
       } catch (error) {
@@ -240,7 +241,7 @@ const EditTransactionScreen = () => {
                   style={[
                     styles.iconBubble,
                     selectedCategoryIndex === index &&
-                      styles.selectedIconBubble,
+                    styles.selectedIconBubble,
                   ]}
                 >
                   <Ionicons name={item.name} size={24} color="#333" />
@@ -369,6 +370,17 @@ const EditTransactionScreen = () => {
         console.log("Cache clear failed:", e);
       }
 
+      // Clean up empty categories - check if the old category became empty
+      // Only cleanup if the category actually changed and it was an expense transaction
+      const oldCategory = transaction.category;
+      const categoryChanged = oldCategory !== formData.category;
+      const wasExpenseTransaction = oldType === "Expenses";
+
+      if (categoryChanged && wasExpenseTransaction && oldCategory) {
+        console.log("[Edit Transaction] Category changed from", oldCategory, "to", formData.category);
+        await cleanupEmptyCategories(user.uid, [oldCategory]);
+      }
+
       Alert.alert("Success", "Transaction updated successfully!", [
         {
           text: "OK",
@@ -442,6 +454,7 @@ const EditTransactionScreen = () => {
             value={formData.amount}
             onChangeText={handleAmountChange}
             editable={!isLoading}
+            enableValidation={true}
           />
 
           <View style={styles.fieldWrapper}>
@@ -478,6 +491,7 @@ const EditTransactionScreen = () => {
             value={formData.description}
             onChangeText={handleDescriptionChange}
             editable={!isLoading}
+            enableValidation={true}
           />
 
           <View style={styles.fieldWrapper}>

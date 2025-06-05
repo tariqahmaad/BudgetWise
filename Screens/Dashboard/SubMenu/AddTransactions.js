@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   Platform,
   FlatList,
+  Alert,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { cleanupEmptyCategories } from "../../../services/transactionService";
 
 import ToggleSwitch from "../../../Components/Buttons/ToggleSwitch";
 import BackButton from "../../../Components/Buttons/BackButton";
@@ -59,6 +61,9 @@ const AddTransactions = ({ navigation }) => {
   // Loading state to prevent duplicate submissions
   const [isSaving, setIsSaving] = useState(false);
 
+  // State to track if large amount has been confirmed
+  const [largeAmountConfirmed, setLargeAmountConfirmed] = useState(false);
+
   // Fetch user accounts
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -80,8 +85,8 @@ const AddTransactions = ({ navigation }) => {
             doc.data().type === "balance"
               ? "wallet-sharp"
               : doc.data().type === "income_tracker"
-              ? "stats-chart"
-              : "trophy",
+                ? "stats-chart"
+                : "trophy",
         }));
 
         setAccounts(accountsData);
@@ -108,6 +113,13 @@ const AddTransactions = ({ navigation }) => {
 
   const handleToggle = (type) => {
     setTransactionType(type);
+  };
+
+  // Handle amount change and reset large amount confirmation
+  const handleAmountChange = (value) => {
+    setAmount(value);
+    // Reset confirmation when amount changes
+    setLargeAmountConfirmed(false);
   };
 
   const handleBackPress = () => {
@@ -227,8 +239,7 @@ const AddTransactions = ({ navigation }) => {
         createdAt: serverTimestamp(),
         label: properCaseName,
         Category: properCaseName,
-        amount: "$0.00",
-        description: "No spending yet",
+        lastUpdated: serverTimestamp(),
       };
 
       const docRef = await addDoc(
@@ -247,6 +258,37 @@ const AddTransactions = ({ navigation }) => {
       console.error("Error creating category:", error);
       return null;
     }
+  };
+
+  // Function to check and confirm large amounts (7+ digits)
+  const checkLargeAmountConfirmation = (amountValue) => {
+    return new Promise((resolve) => {
+      // Check if amount has 7 or more digits
+      const amountString = Math.abs(amountValue).toString().replace(/\./g, '');
+      if (amountString.length >= 7) {
+        Alert.alert(
+          "Large Amount Detected",
+          `You're about to add a transaction of ${amountValue.toLocaleString()}. This is a large amount. Are you sure you want to proceed?`,
+          [
+            {
+              text: "Cancel",
+              style: "cancel",
+              onPress: () => resolve(false),
+            },
+            {
+              text: "Confirm",
+              style: "default",
+              onPress: () => {
+                setLargeAmountConfirmed(true);
+                resolve(true);
+              },
+            },
+          ]
+        );
+      } else {
+        resolve(true);
+      }
+    });
   };
 
   const handleSaveTransaction = async () => {
@@ -272,6 +314,16 @@ const AddTransactions = ({ navigation }) => {
         alert("Please enter a valid amount");
         setIsSaving(false);
         return;
+      }
+
+      // Check for large amount confirmation
+      const amountString = Math.abs(amountValue).toString().replace(/\./g, '');
+      if (amountString.length >= 7 && !largeAmountConfirmed) {
+        const confirmed = await checkLargeAmountConfirmation(amountValue);
+        if (!confirmed) {
+          setIsSaving(false);
+          return;
+        }
       }
 
       if (!selectedAccountId) {
@@ -301,10 +353,10 @@ const AddTransactions = ({ navigation }) => {
       if (transactionType === "Expenses") {
         transactionData.category = selectedCategoryLabel;
 
-        // Create category if needed and get its ID
+        // Create category if needed (only metadata, no amount calculation)
         const categoryId = await createCategoryIfNeeded(selectedCategoryLabel);
 
-        // If we have a category, update its total amount
+        // Update category last updated timestamp if it exists
         if (categoryId) {
           const categoryRef = firestoreDoc(
             firestore,
@@ -314,12 +366,10 @@ const AddTransactions = ({ navigation }) => {
             categoryId
           );
           await updateDoc(categoryRef, {
-            amount: `$${amountValue.toFixed(2)}`,
-            description: description || "Recent expense",
             lastUpdated: serverTimestamp(),
           });
         } else {
-          // If we don't have a category ID but the category should exist, find it and update
+          // If we don't have a category ID but the category should exist, find it and update timestamp
           const categoriesRef = collection(
             firestore,
             "users",
@@ -343,8 +393,6 @@ const AddTransactions = ({ navigation }) => {
                 categoryDoc.id
               ),
               {
-                amount: `$${amountValue.toFixed(2)}`,
-                description: description || "Recent expense",
                 lastUpdated: serverTimestamp(),
               }
             );
@@ -408,6 +456,7 @@ const AddTransactions = ({ navigation }) => {
       setSelectedCategoryLabel(CATEGORY_ICONS[0].label);
       setSelectedCategoryIndex(0);
       setSelectedAccountIndex(0);
+      setLargeAmountConfirmed(false);
       if (accounts.length > 0) {
         setSelectedAccountId(accounts[0].id);
       }
@@ -447,8 +496,9 @@ const AddTransactions = ({ navigation }) => {
           <InputField
             title="Amount"
             value={amount}
-            onChangeText={setAmount}
+            onChangeText={handleAmountChange}
             editable={!isSaving}
+            enableValidation={true}
           />
 
           <View style={styles.fieldWrapper}>
@@ -483,6 +533,7 @@ const AddTransactions = ({ navigation }) => {
             value={description}
             onChangeText={setDescription}
             editable={!isSaving}
+            enableValidation={true}
           />
 
           {/* Account selection */}
@@ -501,7 +552,7 @@ const AddTransactions = ({ navigation }) => {
                       style={[
                         styles.iconSliderItem,
                         selectedAccountIndex === index &&
-                          styles.selectedIconItem,
+                        styles.selectedIconItem,
                       ]}
                       onPress={
                         isSaving
@@ -515,7 +566,7 @@ const AddTransactions = ({ navigation }) => {
                           styles.iconBubble,
                           { backgroundColor: "#333" },
                           selectedAccountIndex === index &&
-                            styles.selectedIconBubble,
+                          styles.selectedIconBubble,
                         ]}
                       >
                         <Ionicons name={item.icon} size={24} color="#FFF" />
@@ -546,7 +597,7 @@ const AddTransactions = ({ navigation }) => {
                       style={[
                         styles.iconSliderItem,
                         selectedCategoryIndex === index &&
-                          styles.selectedIconItem,
+                        styles.selectedIconItem,
                       ]}
                       onPress={
                         isSaving
@@ -559,7 +610,7 @@ const AddTransactions = ({ navigation }) => {
                         style={[
                           styles.iconBubble,
                           selectedCategoryIndex === index &&
-                            styles.selectedIconBubble,
+                          styles.selectedIconBubble,
                         ]}
                       >
                         <Ionicons name={item.name} size={24} color="#333" />

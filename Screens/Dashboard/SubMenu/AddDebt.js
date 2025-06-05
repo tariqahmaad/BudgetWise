@@ -247,6 +247,7 @@ const AddDebt = ({ navigation, route }) => {
               returnKeyType="next"
               blurOnSubmit={false}
               editable={!isSaving}
+              enableValidation={true}
             />
 
             <InputField

@@ -132,6 +132,7 @@ const InputField = ({
   onFocus,
   showPasswordToggle,
   onPasswordToggle,
+  enableValidation = false,
   ...restProps
 }) => {
   const [isFocused, setIsFocused] = useState(false);
@@ -145,6 +146,69 @@ const InputField = ({
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
+
+  // Add validation warning state
+  const [validationWarning, setValidationWarning] = useState("");
+
+  // Add input validation function - only applies when enableValidation is true
+  const validateAndFormatInput = (text, fieldTitle) => {
+    // Only apply validation if explicitly enabled
+    if (!enableValidation) {
+      setValidationWarning(""); // Clear any existing warnings
+      return text;
+    }
+
+    const lowerTitle = fieldTitle.toLowerCase();
+
+    // Description field - only allow letters and spaces
+    if (lowerTitle === 'description') {
+      // Check if text contains invalid characters (numbers or special characters)
+      const hasInvalidChars = /[^a-zA-Z\s]/.test(text);
+
+      if (hasInvalidChars && text.length > 0) {
+        setValidationWarning("Description should only contain letters and spaces");
+      } else {
+        setValidationWarning("");
+      }
+
+      // Remove any characters that are not letters or spaces
+      const lettersOnly = text.replace(/[^a-zA-Z\s]/g, '');
+      return lettersOnly;
+    }
+
+    // Amount field - only allow numbers and decimal point
+    if (lowerTitle === 'amount') {
+      // Check if text contains invalid characters (non-numeric except decimal)
+      const hasInvalidChars = /[^0-9.]/.test(text);
+
+      if (hasInvalidChars && text.length > 0) {
+        setValidationWarning("Amount should only contain numbers and decimal point");
+      } else {
+        setValidationWarning("");
+      }
+
+      // Remove any characters that are not numbers or decimal point
+      const numbersOnly = text.replace(/[^0-9.]/g, '');
+
+      // Ensure only one decimal point
+      const parts = numbersOnly.split('.');
+      if (parts.length > 2) {
+        return `${parts[0]}.${parts.slice(1).join('')}`;
+      }
+
+      return numbersOnly;
+    }
+
+    // For all other fields, clear warnings and return text as-is
+    setValidationWarning("");
+    return text;
+  };
+
+  // Enhanced onChangeText handler with validation
+  const handleTextChange = (text) => {
+    const validatedText = validateAndFormatInput(text, title);
+    onChangeText(validatedText);
+  };
 
   //the following function handle selecting the date and make sure that the date is a vaild number
 
@@ -276,7 +340,7 @@ const InputField = ({
         ) : (
           <TextInput
             value={value}
-            onChangeText={onChangeText}
+            onChangeText={handleTextChange}
             placeholder={config.placeholder}
             placeholderTextColor={COLORS.authTextSecondary}
             keyboardType={config.keyboardType}
@@ -292,14 +356,19 @@ const InputField = ({
         {renderPasswordToggle()}
       </View>
       {error && <Text style={styles.errorText}>{error}</Text>}
+      {validationWarning && !error && (
+        <Text style={styles.warningText}>{validationWarning}</Text>
+      )}
       <View style={styles.horizontalLineContainer}>
         <HorizontalLine
           color={
             error
               ? COLORS.error
-              : isFocused
-                ? COLORS.primary
-                : COLORS.authDivider
+              : validationWarning
+                ? COLORS.warning || "#FFA500"
+                : isFocused
+                  ? COLORS.primary
+                  : COLORS.authDivider
           }
         />
       </View>
@@ -424,6 +493,12 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: COLORS.error,
+    fontSize: SIZES.font.small,
+    fontFamily: "Poppins-Regular",
+    marginTop: SIZES.padding.small,
+  },
+  warningText: {
+    color: COLORS.warning || "#FFA500",
     fontSize: SIZES.font.small,
     fontFamily: "Poppins-Regular",
     marginTop: SIZES.padding.small,

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { firestore, collection, addDoc, Timestamp, doc, getDoc, updateDoc, query, where, getDocs, serverTimestamp } from '../firebase/firebaseConfig';
 import { CATEGORY_ICONS, DEFAULT_CATEGORY_COLORS } from '../constants/theme';
+import { cleanupEmptyCategories } from '../services/transactionService';
 
 /**
  * Custom hook for transaction processing and management
@@ -348,6 +349,16 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
 
             // Clear the main extractedTransactions state in the hook
             setExtractedTransactions([]);
+
+            // Clean up any empty categories that might have been created but not used
+            try {
+                await cleanupEmptyCategories(user.uid);
+                console.log('[Document Extract] Category cleanup completed');
+            } catch (cleanupError) {
+                console.error('[Document Extract] Error during category cleanup:', cleanupError);
+                // Don't let cleanup errors affect the main transaction flow
+            }
+
         } catch (error) {
             console.error('Error saving transactions:', error);
             if (setChatHistoryCallback) {
@@ -456,8 +467,6 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                 createdAt: serverTimestamp(),
                 label: properCaseName,         // Some parts might look for this
                 Category: properCaseName,      // For compatibility with HomeScreen
-                amount: "$0.00",              // Initialize with zero amount
-                description: "Created by AI", // Default description
                 lastUpdated: serverTimestamp()
             };
 
@@ -549,21 +558,14 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
             // Add transaction to Firestore
             await addDoc(transactionsRef, transactionData);
 
-            // Update category amount if we have a valid categoryId
+            // Update category timestamp if we have a valid categoryId (don't update amounts - let HomeScreen calculate dynamically)
             if (categoryId) {
                 const categoryRef = doc(firestore, 'users', user.uid, 'categories', categoryId);
-                // First get the current category data
-                const categoryDoc = await getDoc(categoryRef);
-
-                if (categoryDoc.exists()) {
-                    // Update the category with the new transaction amount
-                    await updateDoc(categoryRef, {
-                        amount: `$${pendingAiTransaction.amount.toFixed(2)}`,
-                        description: pendingAiTransaction.description || 'AI transaction',
-                        lastUpdated: serverTimestamp()
-                    });
-                    console.log('[AI Tx Save] Updated category amount for:', categoryName);
-                }
+                // Update only the timestamp, not the amount (amounts are calculated dynamically)
+                await updateDoc(categoryRef, {
+                    lastUpdated: serverTimestamp()
+                });
+                console.log('[AI Tx Save] Updated category timestamp for:', categoryName);
             }
 
             // Update the account balance
@@ -612,6 +614,16 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                 }]
             }]);
             setPendingAiTransaction(null);
+
+            // Clean up any empty categories that might have been created but not used
+            try {
+                await cleanupEmptyCategories(user.uid);
+                console.log('[AI Tx Save] Category cleanup completed');
+            } catch (cleanupError) {
+                console.error('[AI Tx Save] Error during category cleanup:', cleanupError);
+                // Don't let cleanup errors affect the main transaction flow
+            }
+
         } catch (error) {
             console.error('Error saving AI-suggested transaction:', error, transactionData);
             setChatHistory(prev => [...prev, { role: 'model', parts: [{ text: 'There was an error saving your transaction. Please try again.' }] }]);

@@ -22,7 +22,7 @@ const DocumentProcessorComponent = ({
     const handleDocumentPick = async () => {
         try {
             // Directly pick and process the document, defaulting to not a statement (e.g., a receipt)
-            pickAndProcessDocument(false);
+            await pickAndProcessDocument(false);
         } catch (error) {
             console.error('Error in document pick and process initiation:', error);
             // Optionally, inform the user about the error if the process couldn't even start
@@ -58,7 +58,12 @@ const DocumentProcessorComponent = ({
             const isImage = asset.mimeType.startsWith('image/');
             const isPDF = asset.mimeType === 'application/pdf';
 
-            if (isImage) {
+            // Additional validation for common image formats
+            const validImageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.heic', '.heif'];
+            const fileExtension = asset.name.toLowerCase().substring(asset.name.lastIndexOf('.'));
+            const isValidImageFile = validImageExtensions.includes(fileExtension);
+
+            if (isImage && isValidImageFile) {
                 // For images, we need to resize/compress to make sure it's not too large for the API
                 const manipResult = await ImageManipulator.manipulateAsync(
                     asset.uri,
