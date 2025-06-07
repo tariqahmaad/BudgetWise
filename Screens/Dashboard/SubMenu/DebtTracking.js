@@ -730,17 +730,18 @@ const DebtTracking = ({ navigation }) => {
                           {(() => {
                             const friendDebts = debts[selectedFriend.id] || [];
                             const validDebts = getValidUnpaidDebts(friendDebts);
-                            const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
-                            const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
-                            const netAmount = youOweAmount - theyOweAmount;
 
-                            // Only show button if there are outstanding debts (net amount > 0.01)
-                            if (Math.abs(netAmount) > 0.01) {
+                            // Show button if there is at least one unpaid debt
+                            if (validDebts.length > 0) {
+                              // You can keep your type logic if you want to highlight "owe" or "owed"
+                              const youOweAmount = validDebts.filter(d => d.type === "Debt").reduce((sum, d) => sum + d.amount, 0);
+                              const theyOweAmount = validDebts.filter(d => d.type === "Credit").reduce((sum, d) => sum + d.amount, 0);
+                              const netAmount = youOweAmount - theyOweAmount;
+                              const primaryType = netAmount >= 0 ? "owe" : "owed";
+
                               return (
                                 <TouchableOpacity
                                   onPress={() => {
-                                    const primaryType = netAmount > 0 ? "owe" : "owed";
-
                                     navigation.navigate("DebtDetails", {
                                       friend: {
                                         avatar: require("../../../assets/Avatar01.png"),
@@ -772,7 +773,7 @@ const DebtTracking = ({ navigation }) => {
                                 </TouchableOpacity>
                               );
                             }
-                            return null; // Don't render button if debts are settled
+                            return null; // Don't render button if no unpaid debts
                           })()}
 
                           {/* Add New Debt Button */}
