@@ -146,14 +146,14 @@ const DocumentProcessorComponent = ({
 
                     // Only include transactions with valid amounts
                     if (!isNaN(amount) && amount !== 0) {
-                        // Always use YYYY-MM-DD for date
+                        // Always use full ISO string to match manual transaction format
                         let dateStr = tx.date;
                         if (!dateStr) {
-                            dateStr = new Date().toISOString().split('T')[0];
+                            dateStr = new Date().toISOString();
                         } else {
                             // Try to parse and reformat
                             const d = parseTransactionDate(tx.date);
-                            dateStr = d.toISOString().split('T')[0];
+                            dateStr = d.toISOString();
                         }
                         // Add with possibly missing category for now
                         formattedTransactions.push({

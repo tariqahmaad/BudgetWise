@@ -16,6 +16,7 @@ import {
   StyleSheet,
   Alert,
   Keyboard,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -79,6 +80,10 @@ const AddAccountModal = ({
   const initialBalanceInputRef = useRef(null);
   const savingGoalInputRef = useRef(null);
 
+  // Animation refs
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const modalTranslateY = useRef(new Animated.Value(500)).current;
+
   const [isAccountTypeModalVisible, setAccountTypeModalVisible] =
     useState(false);
   const [accountTitle, setAccountTitle] = useState("");
@@ -92,9 +97,26 @@ const AddAccountModal = ({
   useEffect(() => {
     if (isVisible) {
       resetAccountForm();
-      setTimeout(() => titleInputRef.current?.focus(), 300);
+      // Animate modal in
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalTranslateY, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      setTimeout(() => titleInputRef.current?.focus(), 400);
+    } else {
+      // Reset animation values when modal becomes invisible
+      backdropOpacity.setValue(0);
+      modalTranslateY.setValue(500);
     }
-  }, [isVisible]);
+  }, [isVisible, backdropOpacity, modalTranslateY]);
 
   const resetAccountForm = useCallback(() => {
     setAccountTitle("");
@@ -110,8 +132,22 @@ const AddAccountModal = ({
 
   const handleClose = () => {
     if (!isLoading) {
-      resetAccountForm();
-      onClose();
+      // Animate modal out
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalTranslateY, {
+          toValue: 500,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        resetAccountForm();
+        onClose();
+      });
     }
   };
 
@@ -256,11 +292,25 @@ const AddAccountModal = ({
         accountData
       );
       Alert.alert("Success", "Account added successfully!");
-      resetAccountForm();
-      onClose();
-      if (onSuccess) {
-        onSuccess(); // Call the success callback to refresh the parent
-      }
+      // Animate modal out smoothly after success
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalTranslateY, {
+          toValue: 500,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        resetAccountForm();
+        onClose();
+        if (onSuccess) {
+          onSuccess(); // Call the success callback to refresh the parent
+        }
+      });
     } catch (error) {
       console.error("Error adding account: ", error);
       Alert.alert("Error", `Could not add account. ${error.message}`);
@@ -271,18 +321,30 @@ const AddAccountModal = ({
 
   return (
     <Modal
-      animationType="slide"
+      animationType="none"
       transparent={true}
       visible={isVisible}
       onRequestClose={handleClose}
       statusBarTranslucent={true}
     >
-      <TouchableOpacity
-        style={styles.modalOverlay}
-        activeOpacity={1}
-        onPress={handleClose}
+      <Animated.View
+        style={[
+          styles.modalOverlay,
+          { opacity: backdropOpacity }
+        ]}
       >
-        <View style={styles.modalView} onStartShouldSetResponder={() => true}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <Animated.View
+          style={[
+            styles.modalView,
+            { transform: [{ translateY: modalTranslateY }] }
+          ]}
+          onStartShouldSetResponder={() => true}
+        >
           {isLoading && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color={COLORS.primary} />
@@ -402,8 +464,8 @@ const AddAccountModal = ({
               )}
             </TouchableOpacity>
           </View>
-        </View>
-      </TouchableOpacity>
+        </Animated.View>
+      </Animated.View>
 
       <SelectionModal
         isVisible={isAccountTypeModalVisible}
@@ -448,17 +510,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    paddingHorizontal: 0,
   },
   modalView: {
     width: "100%",
-    maxHeight: "80%",
+    maxHeight: "85%",
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: SIZES.radius.large,
-    borderTopRightRadius: SIZES.radius.large,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     alignItems: "center",
-    ...SHADOWS.medium,
-    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 15,
     overflow: "hidden",
   },
   modalHeader: {

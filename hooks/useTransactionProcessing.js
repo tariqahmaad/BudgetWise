@@ -164,7 +164,7 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
         }
 
         // Enhanced date extraction - try multiple date patterns
-        let dateStr = new Date().toISOString().split('T')[0]; // Default to today
+        let dateStr = new Date().toISOString(); // Default to today with full timestamp
 
         // Pattern: "on [date]" - e.g., "on January 15" or "on 01/15/2023"
         const onDateMatch = userMsg.match(/on ([A-Za-z0-9 ,\/-]+)/i);
@@ -203,16 +203,16 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
         }
 
         // If date string found, try to parse it properly
-        if (dateStr !== new Date().toISOString().split('T')[0]) {
+        if (dateStr !== new Date().toISOString()) {
             try {
                 const parsedDate = parseTransactionDate(dateStr);
                 if (parsedDate && !isNaN(parsedDate)) {
-                    dateStr = parsedDate.toISOString().split('T')[0];
+                    dateStr = parsedDate.toISOString();
                 }
             } catch (e) {
                 console.warn('Error parsing extracted date:', dateStr, e);
                 // Fall back to today's date if parsing fails
-                dateStr = new Date().toISOString().split('T')[0];
+                dateStr = new Date().toISOString();
             }
         }
 
@@ -253,8 +253,8 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                 try {
                     // Convert date string to Timestamp using our helper
                     const dateObj = parseTransactionDate(tx.date);
-                    // Always use YYYY-MM-DD for date string
-                    const dateString = dateObj.toISOString().split('T')[0];
+                    // Always use full ISO string to match manual transaction format
+                    const dateString = dateObj.toISOString();
                     // Ensure category is not empty
                     let category = tx.category;
                     if (!category || category === 'Uncategorized') {
@@ -284,8 +284,8 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                         amount: tx.amount,
                         category: category,
                         description: tx.description,
-                        createdAt: Timestamp.fromDate(dateObj), // Use the date from the statement
-                        date: dateString, // Always YYYY-MM-DD
+                        createdAt: Timestamp.now(), // Use current upload time
+                        date: dateString, // Keep original receipt date as full ISO string
                         type: transactionType, // Use dynamic type rather than hardcoded
                         addedVia: 'document-extract'
                     };
@@ -511,6 +511,8 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                     const now = new Date();
                     dateObj.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
                 }
+                // Always use full ISO string to match manual transaction format
+                dateString = dateObj.toISOString();
             } else {
                 dateObj = new Date();
                 dateString = dateObj.toISOString();
@@ -543,20 +545,85 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
                 transactionType = pendingAiTransaction.type;
             }
 
+            // Add unique timestamp to prevent duplicates
+            const uniqueTimestamp = Date.now();
+
             transactionData = {
                 accountId: defaultAccount.id || '',
                 accountName: defaultAccount.name || 'Main',
                 amount: pendingAiTransaction.amount,
                 category: categoryName,
                 description: pendingAiTransaction.description || '',
-                createdAt: Timestamp.fromDate(dateObj),
-                date: dateString,
+                createdAt: Timestamp.now(), // Use current time when transaction is created
+                date: dateString, // Keep user-specified or parsed date
                 type: transactionType, // Use the determined type instead of hardcoding "Expenses"
-                addedVia: 'ai-chat'
+                addedVia: 'ai-chat',
+                clientTimestamp: uniqueTimestamp // Add unique client timestamp
             };
 
-            // Add transaction to Firestore
-            await addDoc(transactionsRef, transactionData);
+            // Check for recent duplicates before saving
+            const recentTransactionsQuery = query(
+                transactionsRef,
+                where("amount", "==", pendingAiTransaction.amount),
+                where("description", "==", pendingAiTransaction.description || ''),
+                where("type", "==", transactionType),
+                where("accountId", "==", defaultAccount.id || '')
+            );
+
+            const recentTransactions = await getDocs(recentTransactionsQuery);
+            const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+
+            const isDuplicate = recentTransactions.docs.some(doc => {
+                const data = doc.data();
+                const docTimestamp = data.clientTimestamp || (data.createdAt?.seconds * 1000) || 0;
+                return docTimestamp > fiveMinutesAgo;
+            });
+
+            if (isDuplicate) {
+                console.log("Duplicate AI transaction detected, skipping save");
+                setChatHistory(prev => [...prev, {
+                    role: 'model',
+                    parts: [{ text: '⚠️ This transaction appears to have been saved already within the last 5 minutes.' }]
+                }]);
+                setPendingAiTransaction(null);
+                return;
+            }
+
+            // Save transaction with retry logic
+            let transactionDoc = null;
+            let retryCount = 0;
+            const maxRetries = 3;
+
+            while (retryCount < maxRetries) {
+                try {
+                    transactionDoc = await addDoc(transactionsRef, transactionData);
+                    break; // Success, exit retry loop
+                } catch (saveError) {
+                    retryCount++;
+                    console.log(`AI transaction save attempt ${retryCount} failed:`, saveError.message);
+
+                    if (saveError.code === 'already-exists' || saveError.message.includes('Document already exists')) {
+                        console.warn("AI transaction might already exist, treating as duplicate");
+                        setChatHistory(prev => [...prev, {
+                            role: 'model',
+                            parts: [{ text: '⚠️ This transaction may have already been saved. Please check your transaction history.' }]
+                        }]);
+                        setPendingAiTransaction(null);
+                        return;
+                    }
+
+                    if (retryCount >= maxRetries) {
+                        throw saveError; // Re-throw after max retries
+                    }
+
+                    // Wait before retry with exponential backoff
+                    await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                }
+            }
+
+            if (!transactionDoc) {
+                throw new Error("Failed to save AI transaction after multiple attempts");
+            }
 
             // Update category timestamp if we have a valid categoryId (don't update amounts - let HomeScreen calculate dynamically)
             if (categoryId) {
@@ -626,7 +693,18 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
 
         } catch (error) {
             console.error('Error saving AI-suggested transaction:', error, transactionData);
-            setChatHistory(prev => [...prev, { role: 'model', parts: [{ text: 'There was an error saving your transaction. Please try again.' }] }]);
+
+            // Provide more specific error messages
+            let errorMessage = 'There was an error saving your transaction. Please try again.';
+            if (error.code === 'already-exists' || error.message.includes('Document already exists')) {
+                errorMessage = '⚠️ This transaction may have already been saved. Please check your transaction history.';
+            } else if (error.code === 'permission-denied') {
+                errorMessage = '⚠️ Permission denied. Please check your account permissions.';
+            } else if (error.code === 'network-request-failed') {
+                errorMessage = '⚠️ Network error. Please check your connection and try again.';
+            }
+
+            setChatHistory(prev => [...prev, { role: 'model', parts: [{ text: errorMessage }] }]);
         } finally {
             setIsProcessingDocument(false);
         }

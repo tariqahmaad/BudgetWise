@@ -44,6 +44,8 @@ import Images from "../../constants/Images";
 import NetInfo from "@react-native-community/netinfo";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatAmount } from "../../utils/formatAmount";
+import { cleanupEmptyCategories } from "../../services/transactionService";
+import AddAccountModal from "../../Components/Settings/AddAccountModal";
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -127,6 +129,10 @@ const HomeScreen = ({ navigation }) => {
     const nameInputRef = useRef(null); // Ref for the name input
 
     const [isConnected, setIsConnected] = useState(true);
+
+    // Add Account Modal state
+    const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+    const [isAddingAccount, setIsAddingAccount] = useState(false);
 
     // Helper to get user
     const getUser = () => auth.currentUser;
@@ -437,6 +443,30 @@ const HomeScreen = ({ navigation }) => {
         };
     }, [isConnected]);
 
+    // Automatic category cleanup when data is loaded
+    useEffect(() => {
+        const user = getUser();
+        if (!user || categoriesLoading || rawCategories.length === 0 || transactions.length === 0) {
+            return;
+        }
+
+        // Cleanup empty categories automatically
+        const performCleanup = async () => {
+            try {
+                const deletedCategories = await cleanupEmptyCategories(user.uid);
+                if (deletedCategories.length > 0) {
+                    console.log(`[HomeScreen] Cleaned up ${deletedCategories.length} empty categories`);
+                }
+            } catch (error) {
+                console.error('[HomeScreen] Error during category cleanup:', error);
+            }
+        };
+
+        // Debounce the cleanup to avoid running it too frequently
+        const timeoutId = setTimeout(performCleanup, 2000);
+        return () => clearTimeout(timeoutId);
+    }, [categoriesLoading, rawCategories.length, transactions.length]);
+
     // --- FRIENDS ---
     const [friends, setFriends] = useState([]);
     useEffect(() => {
@@ -549,29 +579,32 @@ const HomeScreen = ({ navigation }) => {
         });
 
         // Map raw categories to the final structure with calculated amounts
-        const processedData = rawCategories.map((cat) => {
-            const total = categoryTotals[cat.Category] || 0;
-            const count = categoryTransactionCounts[cat.Category] || 0;
-            const desc = categoryLatestDesc[cat.Category];
-            let amountStr = "$0.00";
-            let descriptionStr = "No spending yet";
+        const processedData = rawCategories
+            .map((cat) => {
+                const total = categoryTotals[cat.Category] || 0;
+                const count = categoryTransactionCounts[cat.Category] || 0;
+                const desc = categoryLatestDesc[cat.Category];
+                let amountStr = "$0.00";
+                let descriptionStr = "No spending yet";
 
-            if (total > 0) {
-                amountStr = formatAmount(total);
-                descriptionStr = count > 1 ? `${count} expenses` : desc || "1 expense";
-            }
+                if (total > 0) {
+                    amountStr = formatAmount(total);
+                    descriptionStr = count > 1 ? `${count} expenses` : desc || "1 expense";
+                }
 
-            return {
-                id: cat.id,
-                Category: cat.Category || cat.name,
-                backgroundColor: cat.backgroundColor,
-                iconName: cat.iconName,
-                name: cat.name || cat.Category,
-                // IMPORTANT: Only use calculated amounts, ignore any stored amounts
-                amount: amountStr,
-                description: descriptionStr,
-            };
-        });
+                return {
+                    id: cat.id,
+                    Category: cat.Category || cat.name,
+                    backgroundColor: cat.backgroundColor,
+                    iconName: cat.iconName,
+                    name: cat.name || cat.Category,
+                    // IMPORTANT: Only use calculated amounts, ignore any stored amounts
+                    amount: amountStr,
+                    description: descriptionStr,
+                    total: total, // Keep track of the actual total for filtering
+                };
+            })
+            .filter((category) => category.total > 0); // Only show categories with transactions
 
         return processedData;
     }, [rawCategories, transactions]);
@@ -681,11 +714,18 @@ const HomeScreen = ({ navigation }) => {
         if (mainCardsData.length === 0) {
             return (
                 <View style={[styles.cardContainerHeight, styles.emptyState]}>
-                    <Ionicons name="wallet-outline" size={50} color={COLORS.gray} />
-                    <Text style={styles.emptyText}>No Accounts Yet</Text>
-                    <Text style={styles.emptySubText}>
-                        Add your bank accounts or income trackers in Settings.
-                    </Text>
+                    <TouchableOpacity
+                        style={styles.addAccountButton}
+                        onPress={() => setShowAddAccountModal(true)}
+                    >
+                        <View style={styles.addAccountCircle}>
+                            <Ionicons name="wallet-outline" size={40} color={COLORS.text} />
+                        </View>
+                        <Text style={styles.addAccountText}>Add Account</Text>
+                        <Text style={styles.addAccountSubText}>
+                            Create your first account to get started
+                        </Text>
+                    </TouchableOpacity>
                 </View>
             );
         }
@@ -718,6 +758,7 @@ const HomeScreen = ({ navigation }) => {
         mainCardIndex,
         renderMainCardItem,
         renderPaginationDots,
+        showAddAccountModal,
     ]);
 
     // Memoize sorted friends with favorites first
@@ -1007,6 +1048,16 @@ const HomeScreen = ({ navigation }) => {
         setShowAddFriendModal(false);
         setNewFriendName("");
         setNewFriendEmail("");
+    }, []);
+
+    // Account modal handlers
+    const handleAddAccountSuccess = useCallback(() => {
+        setShowAddAccountModal(false);
+        // The data will be refreshed automatically via the useEffect with onSnapshot
+    }, []);
+
+    const handleCancelAddAccount = useCallback(() => {
+        setShowAddAccountModal(false);
     }, []);
 
     // Effect to focus the name input when the modal becomes visible
@@ -1329,6 +1380,17 @@ const HomeScreen = ({ navigation }) => {
                     </View>
                 </View>
             )}
+
+            {showAddAccountModal && (
+                <AddAccountModal
+                    isVisible={showAddAccountModal}
+                    onClose={handleCancelAddAccount}
+                    user={getUser()}
+                    setIsLoading={setIsAddingAccount}
+                    isLoading={isAddingAccount}
+                    onSuccess={handleAddAccountSuccess}
+                />
+            )}
         </ScreenWrapper>
     );
 };
@@ -1587,7 +1649,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
         justifyContent: "center",
         alignItems: "center",
         paddingHorizontal: 20,
@@ -1595,14 +1657,14 @@ const styles = StyleSheet.create({
     modalContainer: {
         backgroundColor: COLORS.white,
         padding: 25,
-        borderRadius: 15,
+        borderRadius: 20,
         width: "100%",
         maxWidth: 400,
-        elevation: 5,
+        elevation: 15,
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
     },
     modalTitle: {
         fontSize: 20,
@@ -1655,5 +1717,34 @@ const styles = StyleSheet.create({
     },
     modalButtonTextDisabled: {
         color: COLORS.gray,
+    },
+    addAccountButton: {
+        alignItems: "center",
+        paddingVertical: 20,
+    },
+    addAccountCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        borderStyle: "dashed",
+        borderColor: COLORS.text,
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    addAccountText: {
+        fontSize: 18,
+        color: COLORS.text,
+        fontFamily: "Poppins-SemiBold",
+        marginBottom: 8,
+    },
+    addAccountSubText: {
+        fontSize: 14,
+        color: COLORS.gray,
+        fontFamily: "Poppins-Regular",
+        textAlign: "center",
+        paddingHorizontal: 40,
     },
 });

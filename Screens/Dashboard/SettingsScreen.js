@@ -159,7 +159,7 @@ const SettingsScreen = () => {
                 title="Change Password"
                 onPress={() => navigation.navigate("ChangePassword")}
               />
-              <SettingListItem
+              {/* <SettingListItem
                 icon="finger-print-outline"
                 iconColor="#8E4EC6"
                 title="Biometric Authentication"
@@ -172,13 +172,7 @@ const SettingsScreen = () => {
                     onValueChange={setIsBiometricEnabled}
                   />
                 }
-              />
-              <SettingListItem
-                icon="document-text-outline"
-                iconColor="#8E8E93"
-                title="Privacy Policy"
-                onPress={() => navigation.navigate("PrivacyPolicy")}
-              />
+              /> */}
               <Text style={styles.settingDescription}>
                 Secure your account with password changes, biometric login, and
                 privacy settings

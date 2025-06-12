@@ -12,20 +12,19 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import {
-  auth,
-  firestore,
   collection,
   getDocs,
-  deleteDoc,
   doc,
-  updateDoc,
-} from "../../firebase/firebaseConfig";
+  query,
+  where,
+} from "firebase/firestore";
+import { auth, firestore } from "../../firebase/firebaseConfig";
 import { COLORS, SIZES } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import BackButton from "../../Components/Buttons/BackButton";
-import SettingListItem from "../../Components/Common/SettingListItem";
 import AddAccountModal from "../../Components/Settings/AddAccountModal";
 import EditAccountModal from "../../Components/Settings/EditAccountModal";
+import DeleteAccountConfirmationModal from "../../Components/Settings/DeleteAccountConfirmationModal";
 
 const ManageAccountsScreen = () => {
   const navigation = useNavigation();
@@ -36,6 +35,9 @@ const ManageAccountsScreen = () => {
     useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState(null);
+  const [transactionsToDelete, setTransactionsToDelete] = useState([]);
   const user = auth.currentUser;
 
   const accountTypes = ["balance", "income_tracker", "savings_goal"];
@@ -144,36 +146,41 @@ const ManageAccountsScreen = () => {
     setIsAddAccountModalVisible(true);
   };
 
-  const confirmDelete = useCallback((account) => {
-    Alert.alert(
-      "Delete Account",
-      `Are you sure you want to delete "${account.title}"? This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDelete(account.id),
-        },
-      ]
-    );
-  }, []);
+  const confirmDelete = useCallback(
+    async (account) => {
+      if (!user) return;
+      setIsLoading(true);
 
-  const handleDelete = useCallback(
-    async (id) => {
       try {
-        setIsLoading(true);
-        await deleteDoc(doc(firestore, "users", user.uid, "accounts", id));
-        await fetchAccounts();
-        Alert.alert("Success", "Account deleted successfully!");
+        const transactionsRef = collection(
+          firestore,
+          "users",
+          user.uid,
+          "transactions"
+        );
+        const q = query(transactionsRef, where("accountId", "==", account.id));
+        const querySnapshot = await getDocs(q);
+
+        // Extract data immediately to avoid conflicts
+        const linkedTransactionsData = querySnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setAccountToDelete(account);
+        setTransactionsToDelete(linkedTransactionsData);
+        setIsDeleteModalVisible(true);
       } catch (error) {
-        console.error("Error deleting account:", error);
-        Alert.alert("Error", "Failed to delete account.");
+        console.error("Error checking for linked transactions:", error);
+        Alert.alert(
+          "Error",
+          "Could not check for linked transactions. Please try again."
+        );
       } finally {
         setIsLoading(false);
       }
     },
-    [user, fetchAccounts]
+    [user]
   );
 
   const getAccountTypeLabel = (type) => {
@@ -355,6 +362,21 @@ const ManageAccountsScreen = () => {
           setIsLoading={setIsLoading}
           isLoading={isLoading}
           onSuccess={handleEditSuccess}
+        />
+
+        <DeleteAccountConfirmationModal
+          isVisible={isDeleteModalVisible}
+          onClose={() => setIsDeleteModalVisible(false)}
+          onSuccess={() => {
+            setIsDeleteModalVisible(false);
+            setAccountToDelete(null);
+            setTransactionsToDelete([]);
+            fetchAccounts(); // Refresh the accounts list
+          }}
+          account={accountToDelete}
+          linkedTransactions={transactionsToDelete}
+          user={user}
+          firestore={firestore}
         />
       </View>
     </ScreenWrapper>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Modal,
   View,
@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { updateDoc, doc } from "firebase/firestore";
@@ -29,6 +30,10 @@ const EditAccountModal = ({
   const [goalAmount, setGoalAmount] = useState("");
   const [currentAmount, setCurrentAmount] = useState("");
 
+  // Animation refs
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const modalTranslateY = useRef(new Animated.Value(500)).current;
+
   useEffect(() => {
     if (account) {
       setTitle(account.title || "");
@@ -38,6 +43,46 @@ const EditAccountModal = ({
     }
   }, [account]);
 
+  useEffect(() => {
+    if (isVisible) {
+      // Animate modal in
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalTranslateY, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Reset animation values when modal becomes invisible
+      backdropOpacity.setValue(0);
+      modalTranslateY.setValue(500);
+    }
+  }, [isVisible, backdropOpacity, modalTranslateY]);
+
+  const handleClose = () => {
+    // Animate modal out
+    Animated.parallel([
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalTranslateY, {
+        toValue: 500,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       Alert.alert("Error", "Please enter an account title.");
@@ -46,7 +91,7 @@ const EditAccountModal = ({
 
     try {
       setIsLoading(true);
-      
+
       let updateData = {
         title: title.trim(),
       };
@@ -68,7 +113,21 @@ const EditAccountModal = ({
       await updateDoc(accountRef, updateData);
 
       Alert.alert("Success", "Account updated successfully!");
-      onSuccess();
+      // Animate modal out smoothly after success
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalTranslateY, {
+          toValue: 500,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        onSuccess();
+      });
     } catch (error) {
       console.error("Error updating account:", error);
       Alert.alert("Error", "Failed to update account. Please try again.");
@@ -138,47 +197,64 @@ const EditAccountModal = ({
   };
 
   return (
-    <Modal visible={isVisible} animationType="slide" transparent>
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+    <Modal visible={isVisible} animationType="none" transparent>
+      <Animated.View
+        style={[
+          styles.overlay,
+          { opacity: backdropOpacity }
+        ]}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Edit Account</Text>
-            <View style={styles.placeholder} />
-          </View>
-
-          <View style={styles.content}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Account Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Enter account name"
-                placeholderTextColor="#999"
-                maxLength={50}
-              />
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              { transform: [{ translateY: modalTranslateY }] }
+            ]}
+          >
+            <View style={styles.header}>
+              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Edit Account</Text>
+              <View style={styles.placeholder} />
             </View>
 
-            {renderBalanceFields()}
+            <View style={styles.content}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Account Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholder="Enter account name"
+                  placeholderTextColor="#999"
+                  maxLength={50}
+                />
+              </View>
 
-            <TouchableOpacity
-              style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={isLoading}
-            >
-              <Text style={styles.saveButtonText}>
-                {isLoading ? "Saving..." : "Save Changes"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+              {renderBalanceFields()}
+
+              <TouchableOpacity
+                style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+                onPress={handleSave}
+                disabled={isLoading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isLoading ? "Saving..." : "Save Changes"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </Animated.View>
     </Modal>
   );
 };
@@ -186,14 +262,23 @@ const EditAccountModal = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "flex-end",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
     justifyContent: "flex-end",
   },
   modalContainer: {
     backgroundColor: COLORS.white,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "80%",
+    maxHeight: "85%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 15,
   },
   header: {
     flexDirection: "row",
