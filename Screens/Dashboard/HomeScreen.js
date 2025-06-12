@@ -46,6 +46,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatAmount } from "../../utils/formatAmount";
 import { cleanupEmptyCategories } from "../../services/transactionService";
 import AddAccountModal from "../../Components/Settings/AddAccountModal";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -99,6 +100,9 @@ const SectionHeader = ({ title, onPress }) => (
 );
 
 const HomeScreen = ({ navigation }) => {
+    // Currency context hook
+    const { formatAmount: formatAmountWithCurrency } = useCurrency();
+
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
     const [mainCardsData, setMainCardsData] = useState([]);
@@ -192,7 +196,7 @@ const HomeScreen = ({ navigation }) => {
                             case "balance":
                                 return {
                                     ...accountData,
-                                    amount: formatAmount(data.currentBalance ?? 0),
+                                    amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                     amountColor: data.amountColor || "white",
                                     Frame: require("../../assets/card-animation1.png"),
                                     extraField: [],
@@ -201,18 +205,18 @@ const HomeScreen = ({ navigation }) => {
                             case "income_tracker":
                                 return {
                                     ...accountData,
-                                    amount: formatAmount(data.currentBalance ?? 0),
+                                    amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                     amountColor: data.amountColor || "lightgreen",
                                     Frame: require("../../assets/guy-animation.png"),
                                     extraField: [
                                         {
                                             label: "Total Income",
-                                            value: formatAmount(data.totalIncome ?? 0),
+                                            value: formatAmountWithCurrency(data.totalIncome ?? 0),
                                             color: "lightgreen",
                                         },
                                         {
                                             label: "Total Expenses",
-                                            value: formatAmount(data.totalExpenses ?? 0),
+                                            value: formatAmountWithCurrency(data.totalExpenses ?? 0),
                                             color: "#FF7C7C",
                                         },
                                     ],
@@ -231,13 +235,13 @@ const HomeScreen = ({ navigation }) => {
                                         : 0;
                                 return {
                                     ...accountData,
-                                    amount: formatAmount(data.currentBalance ?? 0),
+                                    amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                     amountColor: data.amountColor || "white",
                                     Frame: require("../../assets/money-animation.png"),
                                     extraField: [
                                         {
                                             label: "Goal",
-                                            value: formatAmount(data.savingGoalTarget ?? 0),
+                                            value: formatAmountWithCurrency(data.savingGoalTarget ?? 0),
                                             color: "#FDB347",
                                         },
                                         {
@@ -252,7 +256,7 @@ const HomeScreen = ({ navigation }) => {
                             default:
                                 return {
                                     ...accountData,
-                                    amount: formatAmount(data.currentBalance ?? 0),
+                                    amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                     amountColor: "white",
                                     Frame: require("../../assets/card-animation1.png"),
                                     extraField: [],
@@ -584,11 +588,11 @@ const HomeScreen = ({ navigation }) => {
                 const total = categoryTotals[cat.Category] || 0;
                 const count = categoryTransactionCounts[cat.Category] || 0;
                 const desc = categoryLatestDesc[cat.Category];
-                let amountStr = "$0.00";
+                let amountStr = formatAmountWithCurrency(0);
                 let descriptionStr = "No spending yet";
 
                 if (total > 0) {
-                    amountStr = formatAmount(total);
+                    amountStr = formatAmountWithCurrency(total);
                     descriptionStr = count > 1 ? `${count} expenses` : desc || "1 expense";
                 }
 
@@ -1015,7 +1019,7 @@ const HomeScreen = ({ navigation }) => {
                         ]}
                         numberOfLines={1}
                     >
-                        {item.amount ? formatAmount(parseFloat(item.amount), { showCents: false }) : "$0"}
+                        {item.amount ? formatAmountWithCurrency(parseFloat(item.amount), { showCents: false }) : formatAmountWithCurrency(0)}
                     </Text>
                 </View>
             </View>
@@ -1116,7 +1120,7 @@ const HomeScreen = ({ navigation }) => {
                         case "balance":
                             return {
                                 ...accountData,
-                                amount: formatAmount(data.currentBalance ?? 0),
+                                amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                 amountColor: data.amountColor || "white",
                                 Frame: require("../../assets/card-animation1.png"),
                                 extraField: [],
@@ -1125,18 +1129,18 @@ const HomeScreen = ({ navigation }) => {
                         case "income_tracker":
                             return {
                                 ...accountData,
-                                amount: formatAmount(data.currentBalance ?? 0),
+                                amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                 amountColor: data.amountColor || "lightgreen",
                                 Frame: require("../../assets/guy-animation.png"),
                                 extraField: [
                                     {
                                         label: "Total Income",
-                                        value: formatAmount(data.totalIncome ?? 0),
+                                        value: formatAmountWithCurrency(data.totalIncome ?? 0),
                                         color: "lightgreen",
                                     },
                                     {
                                         label: "Total Expenses",
-                                        value: formatAmount(data.totalExpenses ?? 0),
+                                        value: formatAmountWithCurrency(data.totalExpenses ?? 0),
                                         color: "#FF7C7C",
                                     },
                                 ],
@@ -1154,13 +1158,13 @@ const HomeScreen = ({ navigation }) => {
                                     : 0;
                             return {
                                 ...accountData,
-                                amount: formatAmount(data.currentBalance ?? 0),
+                                amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                 amountColor: data.amountColor || "white",
                                 Frame: require("../../assets/money-animation.png"),
                                 extraField: [
                                     {
                                         label: "Goal",
-                                        value: formatAmount(data.savingGoalTarget ?? 0),
+                                        value: formatAmountWithCurrency(data.savingGoalTarget ?? 0),
                                         color: "#FDB347",
                                     },
                                     {
@@ -1175,7 +1179,7 @@ const HomeScreen = ({ navigation }) => {
                         default:
                             return {
                                 ...accountData,
-                                amount: formatAmount(data.currentBalance ?? 0),
+                                amount: formatAmountWithCurrency(data.currentBalance ?? 0),
                                 amountColor: "white",
                                 Frame: require("../../assets/card-animation1.png"),
                                 extraField: [],

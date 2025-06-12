@@ -60,7 +60,7 @@ const INPUT_CONFIG = {
   amount: {
     placeholder: "0.00",
     keyboardType: "numeric",
-    icon: "dollar-sign",
+    icon: "hash",
     iconType: "Feather",
     autoCapitalize: "none",
     secureTextEntry: false,

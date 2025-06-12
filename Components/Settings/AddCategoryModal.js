@@ -27,6 +27,7 @@ import {
 } from '../../firebase/firebaseConfig'; // Adjust path if needed
 import SelectionModal from '../SelectionModel'; // Adjust path if needed
 import { COLORS, DEFAULT_CATEGORY_COLORS, SIZES, SHADOWS } from '../../constants/theme'; // Adjust path if needed
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 // Common icon suggestions for categories
 const SUGGESTED_ICONS = [
@@ -66,6 +67,7 @@ const getLabelFromValue = (options, value) => {
 };
 
 const AddCategoryModal = ({ isVisible, onClose, user }) => {
+    const { formatAmount } = useCurrency();
     const [isLoading, setIsLoading] = useState(false);
     const [isCategoryColorModalVisible, setCategoryColorModalVisible] = useState(false);
     const [categoryName, setCategoryName] = useState('');
@@ -206,7 +208,7 @@ const AddCategoryModal = ({ isVisible, onClose, user }) => {
                 // Extra fields for compatibility with different parts of the app
                 label: properCaseName,         // Some code might look for this
                 Category: properCaseName,      // For compatibility with HomeScreen
-                amount: "$0.00",              // Initialize with zero amount
+                amount: formatAmount(0),      // Initialize with zero amount
                 description: "No spending yet" // Default description
             };
 

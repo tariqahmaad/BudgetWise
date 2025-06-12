@@ -6,7 +6,7 @@
  * @param {Object} options - Formatting options
  * @param {boolean} options.showCents - Whether to show cents for smaller amounts (default: true)
  * @param {boolean} options.useCompactFormat - Whether to use compact format for large amounts (default: true)
- * @param {string} options.currency - Currency symbol to display (default: '$')
+ * @param {string} options.currency - Currency symbol to display (default: '$') - DEPRECATED: Use currency context instead
  * @param {number} options.compactThreshold - Minimum amount to trigger compact format (default: 100000)
  * @returns {string} Formatted amount string
  * 
@@ -16,12 +16,15 @@
  * formatAmount(1234567) // "$1.2M"
  * formatAmount(1234567890) // "$1.2B"
  * formatAmount(25000, { showCents: false }) // "$25K"
+ * 
+ * @deprecated This function is maintained for backward compatibility.
+ * For new code, use the currency context: useCurrency().formatAmount()
  */
 export const formatAmount = (amount, options = {}) => {
     const {
         showCents = true,
         useCompactFormat = true,
-        currency = '$',
+        currency = '$', // Kept for backward compatibility
         compactThreshold = 100000 // 100K threshold
     } = options;
 

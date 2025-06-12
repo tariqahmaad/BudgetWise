@@ -7,7 +7,7 @@ import { cleanupEmptyCategories } from '../services/transactionService';
  * Custom hook for transaction processing and management
  * Handles transaction extraction, saving, suggestions, and more
  */
-const useTransactionProcessing = (user, accounts, generateResponse) => {
+const useTransactionProcessing = (user, accounts, generateResponse, formatAmount = null) => {
     const [extractedTransactions, setExtractedTransactions] = useState([]);
     const [pendingAiTransaction, setPendingAiTransaction] = useState(null);
     const [isProcessingDocument, setIsProcessingDocument] = useState(false);
@@ -15,9 +15,9 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
     // Format extracted transactions for display in chat
     const formatExtractedTransactions = useCallback((transactions) => {
         return transactions.map((tx, index) =>
-            `${index + 1}. **${tx.date}**: ${tx.description} - $${tx.amount.toFixed(2)} (${tx.category})`
+            `${index + 1}. **${tx.date}**: ${tx.description} - ${formatAmount ? formatAmount(tx.amount) : `$${tx.amount.toFixed(2)}`} (${tx.category})`
         ).join('\n');
-    }, []);
+    }, [formatAmount]);
 
     // Helper function to parse dates from different formats
     const parseTransactionDate = useCallback((dateString) => {
@@ -677,7 +677,7 @@ const useTransactionProcessing = (user, accounts, generateResponse) => {
             setChatHistory(prev => [...prev, {
                 role: 'model',
                 parts: [{
-                    text: `✅ ${transactionType} transaction of $${pendingAiTransaction.amount.toFixed(2)} added to your account.`
+                    text: `✅ ${transactionType} transaction of ${formatAmount ? formatAmount(pendingAiTransaction.amount) : `$${pendingAiTransaction.amount.toFixed(2)}`} added to your account.`
                 }]
             }]);
             setPendingAiTransaction(null);

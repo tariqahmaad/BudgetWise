@@ -16,6 +16,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { cleanupEmptyCategories } from "../../../services/transactionService";
+import { useCurrency } from "../../../contexts/CurrencyContext";
 
 import ToggleSwitch from "../../../Components/Buttons/ToggleSwitch";
 import BackButton from "../../../Components/Buttons/BackButton";
@@ -44,6 +45,9 @@ import {
 } from "../../../firebase/firebaseConfig";
 
 const AddTransactions = ({ navigation }) => {
+  // Currency context hook
+  const { getCurrencySymbol } = useCurrency();
+
   const [transactionType, setTransactionType] = useState("Expenses");
   const [showNotification, setShowNotification] = useState(false);
   const [showNoAccountModal, setShowNoAccountModal] = useState(false);

@@ -18,10 +18,9 @@ import {
     writeBatch,
 } from "firebase/firestore";
 import { cleanupEmptyCategories } from "../../services/transactionService";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
-const formatCurrency = (amount) => {
-    return `$${Number(amount).toFixed(2)}`;
-};
+// formatCurrency moved inside component to access currency context
 
 const formatDate = (timestamp) => {
     if (!timestamp) return "N/A";
@@ -47,23 +46,6 @@ const formatDate = (timestamp) => {
     return "Invalid Date";
 };
 
-// Memoized transaction item component for better performance
-const TransactionItem = React.memo(({ item, isLast }) => (
-    <View style={[styles.transactionItem, isLast && styles.lastTransactionItem]}>
-        <View style={styles.transactionDetails}>
-            <Text style={styles.transactionDescription} numberOfLines={2}>
-                {item.description || item.category || "No Description"}
-            </Text>
-            <Text style={styles.transactionDate}>
-                {formatDate(item.date || item.createdAt)}
-            </Text>
-        </View>
-        <Text style={styles.transactionAmount}>
-            {formatCurrency(item.amount)}
-        </Text>
-    </View>
-));
-
 const DeleteAccountConfirmationModal = ({
     isVisible,
     onClose,
@@ -73,8 +55,26 @@ const DeleteAccountConfirmationModal = ({
     user,
     firestore,
 }) => {
+    const { formatAmount } = useCurrency();
     const [isDeleting, setIsDeleting] = useState(false);
     const [screenHeight, setScreenHeight] = useState(Dimensions.get('window').height);
+
+    // Memoized transaction item component with currency context
+    const TransactionItem = React.memo(({ item, isLast }) => (
+        <View style={[styles.transactionItem, isLast && styles.lastTransactionItem]}>
+            <View style={styles.transactionDetails}>
+                <Text style={styles.transactionDescription} numberOfLines={2}>
+                    {item.description || item.category || "No Description"}
+                </Text>
+                <Text style={styles.transactionDate}>
+                    {formatDate(item.date || item.createdAt)}
+                </Text>
+            </View>
+            <Text style={styles.transactionAmount}>
+                {formatAmount(item.amount)}
+            </Text>
+        </View>
+    ));
 
     // Animation refs
     const backdropOpacity = useRef(new Animated.Value(0)).current;

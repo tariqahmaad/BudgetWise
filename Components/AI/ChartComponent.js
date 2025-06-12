@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions, ActivityIndicator, Animated, Toucha
 import { LineChart } from 'react-native-chart-kit';
 import { COLORS, SIZES, FONTS } from '../../constants/theme';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -72,6 +73,8 @@ const ChartComponent = React.memo(({
     onRetry, // New prop for retry functionality
     suggestedQuestions = [], // Pass suggestions to help determine scroll need
 }) => {
+    // Currency context hook
+    const { getCurrencySymbol } = useCurrency();
     const [scrollEnabled, setScrollEnabled] = useState(false);
     const [contentHeight, setContentHeight] = useState(0);
     const [containerHeight, setContainerHeight] = useState(0);
@@ -238,11 +241,12 @@ const ChartComponent = React.memo(({
                                 xLabelsOffset={-10}
                                 segments={4}
                                 formatYLabel={(yLabel) => {
-                                    const num = parseFloat(yLabel.replace('$', ''));
-                                    if (isNaN(num)) return '$0';
-                                    if (num >= 1000000) return `$${(num / 1000000).toFixed(1)}M`;
-                                    if (num >= 1000) return `$${(num / 1000).toFixed(0)}k`;
-                                    return `$${num.toFixed(0)}`;
+                                    const currencySymbol = getCurrencySymbol();
+                                    const num = parseFloat(yLabel.replace(currencySymbol, '').replace('$', ''));
+                                    if (isNaN(num)) return `${currencySymbol}0`;
+                                    if (num >= 1000000) return `${currencySymbol}${(num / 1000000).toFixed(1)}M`;
+                                    if (num >= 1000) return `${currencySymbol}${(num / 1000).toFixed(0)}k`;
+                                    return `${currencySymbol}${num.toFixed(0)}`;
                                 }}
                             />
                         </Animated.View>

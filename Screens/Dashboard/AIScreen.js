@@ -44,11 +44,13 @@ import DocumentProcessorComponent from '../../Components/AI/DocumentProcessorCom
 import useTransactionProcessing from '../../hooks/useTransactionProcessing';
 import useAnimations from '../../hooks/useAnimations';
 import useAIChat from '../../hooks/useAIChat';
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 const screenWidth = Dimensions.get('window').width;
 
 const AIScreen = ({ navigation }) => {
     const { user } = useContext(AuthContext);
+    const { getCurrencySymbol, formatAmount } = useCurrency();
     const [chartData, setChartData] = useState({ labels: [], datasets: [{ data: [] }] });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -85,7 +87,7 @@ const AIScreen = ({ navigation }) => {
         parseTransactionFromAiResponse,
         saveExtractedTransactions: actualSaveFunctionFromHook,
         saveAiSuggestedTransaction
-    } = useTransactionProcessing(user, accounts, generateResponse);
+    } = useTransactionProcessing(user, accounts, generateResponse, formatAmount);
 
     const {
         showChart,
@@ -118,7 +120,7 @@ const AIScreen = ({ navigation }) => {
         handleSend: handleAIChat,
         handleSlashCommand,
         clearChat: clearChatHistory
-    } = useAIChat(user, transactions, accounts, userProfile);
+    } = useAIChat(user, transactions, accounts, userProfile, getCurrencySymbol(), formatAmount);
 
     // Memoize expensive data for AI chat
     const memoizedTransactionSummary = useMemo(() => ({

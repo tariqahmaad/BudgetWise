@@ -25,9 +25,11 @@ import BackButton from "../../Components/Buttons/BackButton";
 import AddAccountModal from "../../Components/Settings/AddAccountModal";
 import EditAccountModal from "../../Components/Settings/EditAccountModal";
 import DeleteAccountConfirmationModal from "../../Components/Settings/DeleteAccountConfirmationModal";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 const ManageAccountsScreen = () => {
   const navigation = useNavigation();
+  const { formatAmount: formatAmountWithCurrency } = useCurrency();
   const [accounts, setAccounts] = useState([]);
   const [isAddAccountModalVisible, setIsAddAccountModalVisible] =
     useState(false);
@@ -100,10 +102,10 @@ const ManageAccountsScreen = () => {
     if (account.type === "savings_goal") {
       const current = account.currentAmount || account.currentBalance || 0;
       const goal = account.savingGoalTarget || account.goalAmount || 0;
-      return `$${current.toFixed(2)} / $${goal.toFixed(2)}`;
+      return `${formatAmountWithCurrency(current)} / ${formatAmountWithCurrency(goal)}`;
     }
     const amount = account.currentBalance || account.amount || 0;
-    return `$${amount.toFixed(2)}`;
+    return formatAmountWithCurrency(amount);
   };
 
   const handleEditAccount = (account) => {

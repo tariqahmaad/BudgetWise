@@ -37,6 +37,7 @@ import {
   updateDoc,
 } from "../../../firebase/firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
+import { useCurrency } from "../../../contexts/CurrencyContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -56,6 +57,7 @@ const CARD_DIMENSIONS = {
 
 const DebtTracking = ({ navigation }) => {
   const { user } = useAuth();
+  const { formatAmount } = useCurrency();
   const [accounts, setAccounts] = useState([]);
   const [friends, setFriends] = useState([]);
   const [debts, setDebts] = useState({});
@@ -363,7 +365,7 @@ const DebtTracking = ({ navigation }) => {
     {
       key: "owe",
       title: "Total You Owe",
-      amount: `$${totalYouOwe.toFixed(2)}`,
+      amount: formatAmount(totalYouOwe),
       amountColor: COLORS.LightRed,
       backgroundColor: COLORS.DeepRed,
       onPress: () => handleDebtCardPress("owe"),
@@ -371,12 +373,12 @@ const DebtTracking = ({ navigation }) => {
     {
       key: "owed",
       title: "Total Owed To You",
-      amount: `$${totalOwedToYou.toFixed(2)}`,
+      amount: formatAmount(totalOwedToYou),
       amountColor: COLORS.LightGreen,
       backgroundColor: COLORS.DeepGreen,
       onPress: () => handleDebtCardPress("owed"),
     },
-  ], [totalYouOwe, totalOwedToYou, handleDebtCardPress]);
+  ], [totalYouOwe, totalOwedToYou, handleDebtCardPress, formatAmount]);
 
   // Debt Card render for FlatList (horizontal) - Updated to match HomeScreen pattern
   const renderDebtCard = useCallback(({ item, index }) => (

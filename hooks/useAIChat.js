@@ -5,7 +5,7 @@ import { generateChatResponse, generateResponse } from '../services/geminiServic
 /**
  * Custom hook for managing AI chat interactions
  */
-const useAIChat = (user, transactions, accounts, userProfile) => {
+const useAIChat = (user, transactions, accounts, userProfile, currencySymbol = '$', formatAmount = null) => {
     const [chatHistory, setChatHistory] = useState([]);
     const [message, setMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
@@ -61,7 +61,7 @@ const useAIChat = (user, transactions, accounts, userProfile) => {
             `How does my spending compare to others?`,
             `Compare my spending this month to last month.`,
             largestTransaction ?
-                `Was my $${largestTransaction.amount?.toFixed(2)} purchase a good decision?` : null,
+                `Was my ${formatAmount ? formatAmount(largestTransaction.amount) : `${currencySymbol}${largestTransaction.amount?.toFixed(2)}`} purchase a good decision?` : null,
             topCategories?.[0] ?
                 `How can I spend less on ${topCategories[0].category}?` : null,
             topCategories?.[1] ?
@@ -124,7 +124,8 @@ const useAIChat = (user, transactions, accounts, userProfile) => {
                     userProfile,
                     transactionSummary,
                     transactions, // Prop to useAIChat
-                    accounts    // Prop to useAIChat
+                    accounts,    // Prop to useAIChat
+                    currencySymbol // Pass currency symbol to AI
                 );
 
                 console.log('[AI Chat] Raw AI Response:', aiResponse); // Log raw AI response
@@ -165,7 +166,7 @@ const useAIChat = (user, transactions, accounts, userProfile) => {
 
                     const confirmMsg = {
                         role: 'model',
-                        parts: [{ text: `📝 I detected a transaction suggestion:\n\n- Amount: $${aiSuggestedTx.amount}\n- Category: ${aiSuggestedTx.category}\n- Description: ${aiSuggestedTx.description}\n- Account: ${aiSuggestedTx.accountObj ? aiSuggestedTx.accountObj.name : (accounts[0]?.name || 'Main')}\n- Date: ${displayDate}\n\nWould you like me to add this transaction to your account? (yes/no)` }]
+                        parts: [{ text: `📝 I detected a transaction suggestion:\n\n- Amount: ${formatAmount ? formatAmount(aiSuggestedTx.amount) : `${currencySymbol}${aiSuggestedTx.amount}`}\n- Category: ${aiSuggestedTx.category}\n- Description: ${aiSuggestedTx.description}\n- Account: ${aiSuggestedTx.accountObj ? aiSuggestedTx.accountObj.name : (accounts[0]?.name || 'Main')}\n- Date: ${displayDate}\n\nWould you like me to add this transaction to your account? (yes/no)` }]
                     };
                     setChatHistory(prev => [...prev, { role: 'model', parts: [{ text: aiResponse }] }, confirmMsg]);
                 } else {

@@ -57,7 +57,7 @@ const retryWithBackoff = async (apiCall, operation = 'API call') => {
 };
 
 // Function to format transactions concisely for the prompt
-const formatTransactionsForPrompt = (transactions = []) => {
+const formatTransactionsForPrompt = (transactions = [], currencySymbol = '$') => {
     if (!transactions || transactions.length === 0) {
         return "No transactions recorded this month.";
     }
@@ -66,17 +66,17 @@ const formatTransactionsForPrompt = (transactions = []) => {
 
     // Format all transactions passed
     return sortedTransactions.map(tx =>
-        `- ${tx.createdAt ? tx.createdAt.toLocaleDateString() : 'N/A'}: $${tx.amount?.toFixed(2) || 'N/A'} (${tx.category || 'Uncategorized'})`
+        `- ${tx.createdAt ? tx.createdAt.toLocaleDateString() : 'N/A'}: ${currencySymbol}${tx.amount?.toFixed(2) || 'N/A'} (${tx.category || 'Uncategorized'})`
     ).join('\n');
 };
 
 // Function to format accounts for the prompt
-const formatAccountsForPrompt = (accounts = []) => {
+const formatAccountsForPrompt = (accounts = [], currencySymbol = '$') => {
     if (!accounts || accounts.length === 0) {
         return "No accounts linked.";
     }
     return accounts.map(acc =>
-        `- ${acc.name || 'Unnamed Account'}: $${acc.balance?.toFixed(2) || 'N/A'}`
+        `- ${acc.name || 'Unnamed Account'}: ${currencySymbol}${acc.balance?.toFixed(2) || 'N/A'}`
     ).join('\n');
 };
 
@@ -215,7 +215,8 @@ export const generateChatResponse = async (
     userProfile,
     transactionSummary,
     transactions,
-    accounts
+    accounts,
+    currencySymbol = '$'
 ) => {
     try {
         console.log("[Gemini Service LOG] generateChatResponse called.");
@@ -245,10 +246,10 @@ export const generateChatResponse = async (
 
         // Human-readable summaries
         const topCategoriesText = topCategories.length
-            ? topCategories.map((c, i) => `${i + 1}. ${c.category}: $${c.total.toFixed(2)}`).join('\n')
+            ? topCategories.map((c, i) => `${i + 1}. ${c.category}: ${currencySymbol}${c.total.toFixed(2)}`).join('\n')
             : 'No category data.';
         const largestTxText = largestTransaction
-            ? `On ${largestTransaction.createdAt ? new Date(largestTransaction.createdAt).toLocaleDateString() : 'N/A'}, you spent $${largestTransaction.amount?.toFixed(2) || 'N/A'} on ${largestTransaction.category || 'Uncategorized'}.`
+            ? `On ${largestTransaction.createdAt ? new Date(largestTransaction.createdAt).toLocaleDateString() : 'N/A'}, you spent ${currencySymbol}${largestTransaction.amount?.toFixed(2) || 'N/A'} on ${largestTransaction.category || 'Uncategorized'}.`
             : 'No transactions this month.';
 
         // Detect if this is the first user message in the chat history
@@ -287,7 +288,7 @@ Accounts:
 ${accountsJson}
 
 Transaction Summary:
-- Total spent this month: $${totalSpent.toFixed(2)}
+- Total spent this month: ${currencySymbol}${totalSpent.toFixed(2)}
 - Weekly totals: [${weeklyTotals.join(', ')}]
 - Top 3 categories: 
 ${topCategoriesText}

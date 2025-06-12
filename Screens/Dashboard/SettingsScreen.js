@@ -121,8 +121,16 @@ const SettingsScreen = () => {
                 title="My Profile"
                 onPress={() => navigation.navigate("Profile")}
               />
+              <SettingListItem
+                icon="card-outline"
+                iconColor="#FF9500"
+                title="Currency"
+                subtitle="Choose your preferred currency"
+                onPress={() => navigation.navigate("CurrencySelection")}
+                rightIcon="chevron-forward-outline"
+              />
               <Text style={styles.settingDescription}>
-                Manage your personal information and account preferences
+                Manage your personal information, account preferences, and currency settings
               </Text>
             </View>
 

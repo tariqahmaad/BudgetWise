@@ -20,6 +20,7 @@ import { COLORS, CATEGORY_ICONS } from "../../constants/theme";
 import { CHART_COLORS, hexToRgba } from "../../constants/chart";
 import { isSameMonth } from "../../hooks/useSameMonth";
 import { subscribeToMonthlyExpenses } from "../../services/transactionService";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
   map[category.label] = category.name;
@@ -30,6 +31,7 @@ const screenWidth = Dimensions.get("window").width;
 
 const SummaryScreen = () => {
   const { user } = useAuth();
+  const { formatAmount } = useCurrency();
 
   // Animated value for the center percentage
   const percentAnim = useRef(new Animated.Value(0)).current;
@@ -222,7 +224,7 @@ const SummaryScreen = () => {
         </View>
         <View style={styles.transactionAmountContainer}>
           <Text style={styles.transactionAmountValue}>
-            ${parseFloat(item.amount).toFixed(2)}
+            {formatAmount(parseFloat(item.amount))}
           </Text>
         </View>
       </View>
@@ -315,8 +317,8 @@ const SummaryScreen = () => {
                     ]}
                   >
                     {selectedIndex != null && chartData[selectedIndex]
-                      ? `$${chartData[selectedIndex].population.toFixed(2)}`
-                      : `$${totalAmount.toFixed(2)}`}
+                      ? formatAmount(chartData[selectedIndex].population)
+                      : formatAmount(totalAmount)}
                   </Text>
                 )}
                 <Text style={styles.centerCategoryText}>

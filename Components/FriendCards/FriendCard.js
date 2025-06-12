@@ -12,6 +12,7 @@ import {
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 const RED = "#E53935"; // Strong red color
 const GREEN = "#1BC47D"; // Bright green color
@@ -66,6 +67,7 @@ const FriendCard = ({
   youOweAmount = 0, // New prop for "Your owe" amount
   theyOweAmount = 0, // New prop for "They owe" amount
 }) => {
+  const { formatAmount } = useCurrency();
   const isOverdue = isDebtOverdue(dueDate);
   const isDueToday = isDebtDueToday(dueDate);
 
@@ -127,7 +129,7 @@ const FriendCard = ({
         <View style={styles.right}>
           {typeof debtAmount === "number" && !isNaN(debtAmount) ? (
             <Text style={[styles.amount, { color: amountColor }]}>
-              ${debtAmount.toFixed(2)}
+              {formatAmount(debtAmount)}
             </Text>
           ) : null}
           {showOverdueLabel && (
@@ -149,7 +151,7 @@ const FriendCard = ({
                     style={{ marginRight: 4 }}
                   />
                   <Text style={{ color: "red", fontWeight: "bold", fontSize: 13 }}>
-                    ${youOweAmount.toFixed(2)}
+                    {formatAmount(youOweAmount)}
                   </Text>
                 </View>
               )}
@@ -162,7 +164,7 @@ const FriendCard = ({
                     style={{ marginRight: 4 }}
                   />
                   <Text style={{ color: "green", fontWeight: "bold", fontSize: 13 }}>
-                    ${theyOweAmount.toFixed(2)}
+                    {formatAmount(theyOweAmount)}
                   </Text>
                 </View>
               )}
@@ -179,7 +181,7 @@ const FriendCard = ({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      // android_ripple={{ color: "#eee", borderless: false }} // Ripple is handled by parent Pressable in Debts.js/DebtTracking.js
+    // android_ripple={{ color: "#eee", borderless: false }} // Ripple is handled by parent Pressable in Debts.js/DebtTracking.js
     >
       <Animated.View
         style={[
@@ -212,7 +214,7 @@ const FriendCard = ({
         <View style={styles.right}>
           {typeof debtAmount === "number" && !isNaN(debtAmount) ? (
             <Text style={[styles.amount, { color: amountColor }]}>
-              ${debtAmount.toFixed(2)}
+              {formatAmount(debtAmount)}
             </Text>
           ) : null}
           {showOverdueLabel && (
@@ -234,7 +236,7 @@ const FriendCard = ({
                     style={{ marginRight: 4 }}
                   />
                   <Text style={{ color: "red", fontWeight: "bold", fontSize: 13 }}>
-                    ${youOweAmount.toFixed(2)}
+                    {formatAmount(youOweAmount)}
                   </Text>
                 </View>
               )}
@@ -247,7 +249,7 @@ const FriendCard = ({
                     style={{ marginRight: 4 }}
                   />
                   <Text style={{ color: "green", fontWeight: "bold", fontSize: 13 }}>
-                    ${theyOweAmount.toFixed(2)}
+                    {formatAmount(theyOweAmount)}
                   </Text>
                 </View>
               )}

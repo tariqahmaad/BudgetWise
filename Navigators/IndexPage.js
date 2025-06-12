@@ -26,6 +26,7 @@ import ChangePasswordScreen from "../Screens/Settings/ChangePasswordScreen"
 import PrivacyPolicyScreen from "../Screens/Settings/PrivacyPolicyScreen"
 import SupportScreen from "../Screens/Settings/SupportScreen"
 import AboutScreen from "../Screens/Settings/AboutScreen"
+import CurrencySelectionScreen from "../Screens/Settings/CurrencySelectionScreen"
 // Navigation Configuration
 const Stack = createNativeStackNavigator();
 
@@ -50,7 +51,7 @@ const AuthStack = () => (
       ...navigationConfig.defaultScreenOptions,
       ...navigationConfig.authStackOptions,
     }}
-  > 
+  >
     <Stack.Screen name="Onboarding" component={onboardingScreen} />
     <Stack.Screen name="SignUp" component={SignUpPage} />
     <Stack.Screen name="SignIn" component={LoginPage} />
@@ -74,6 +75,7 @@ const DashboardStack = () => (
     <Stack.Screen name="ManageTransactions" component={ManageTransactionsScreen} />
     <Stack.Screen name="EditTransaction" component={EditTransactionScreen} />
     <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+    <Stack.Screen name="CurrencySelection" component={CurrencySelectionScreen} />
     <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
     <Stack.Screen name="About" component={AboutScreen} />

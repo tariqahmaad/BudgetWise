@@ -7,6 +7,7 @@ import ScreenWrapper from "../../../Components/ScreenWrapper";
 const plantImage = require("../../../assets/debt-details.png");
 import { COLORS, FONTS, SIZES } from "../../../constants/theme";
 import { useAuth } from "../../../context/AuthProvider";
+import { useCurrency } from "../../../contexts/CurrencyContext";
 import {
   firestore,
   collection,
@@ -116,14 +117,17 @@ function categorizeAndSortDebts(debts) {
   return { overdue, dueToday, upcoming };
 }
 
-// Helper function to format amounts compactly for badges
-function formatBadgeAmount(amount) {
-  return `$${amount.toFixed(0)}`;
-}
+// Helper function to format amounts compactly for badges - moved inside component to access currency
 
 const DebtDetails = ({ navigation, route }) => {
   const { user } = useAuth();
+  const { formatAmount } = useCurrency();
   const { friend, debts, type } = route.params;
+
+  // Helper function to format amounts compactly for badges
+  const formatBadgeAmount = (amount) => {
+    return formatAmount(amount, { showCents: false });
+  };
 
   // State management
   const [accounts, setAccounts] = useState([]);
@@ -418,7 +422,7 @@ const DebtDetails = ({ navigation, route }) => {
         if (currentBalance < selectedDebt.amount) {
           Alert.alert(
             "Insufficient Funds",
-            `Your account "${account.title}" has a balance of $${currentBalance.toFixed(2)}, but you need $${selectedDebt.amount.toFixed(2)} to pay this debt.`,
+            `Your account "${account.title}" has a balance of ${formatAmount(currentBalance)}, but you need ${formatAmount(selectedDebt.amount)} to pay this debt.`,
             [{ text: "OK" }]
           );
           hideLoadingWithAnimation();
@@ -480,8 +484,8 @@ const DebtDetails = ({ navigation, route }) => {
       await addDoc(collection(firestore, "users", user.uid, "transactions"), transactionData);
 
       const message = activeTab === "send"
-        ? `Debt of $${selectedDebt.amount.toFixed(2)} paid from "${account.title}"!`
-        : `Payment of $${selectedDebt.amount.toFixed(2)} received to "${account.title}"!`;
+        ? `Debt of ${formatAmount(selectedDebt.amount)} paid from "${account.title}"!`
+        : `Payment of ${formatAmount(selectedDebt.amount)} received to "${account.title}"!`;
 
       hideLoadingWithAnimation();
       showSuccessWithAnimation(message);
@@ -643,7 +647,7 @@ const DebtDetails = ({ navigation, route }) => {
                 {/* Badge positioned in top right */}
                 <View style={[styles.topRightBadge, styles.receiveBadge, activeTab === "receive" && styles.activeReceiveBadge]}>
                   <Text style={[styles.tabBadgeText, activeTab === "receive" && styles.activeBadgeText]}>
-                    ${theyOweAmount.toFixed(0)}
+                    {formatBadgeAmount(theyOweAmount)}
                   </Text>
                 </View>
               </View>
@@ -691,7 +695,7 @@ const DebtDetails = ({ navigation, route }) => {
                 {/* Badge positioned in top right */}
                 <View style={[styles.topRightBadge, styles.sendBadge, activeTab === "send" && styles.activeSendBadge]}>
                   <Text style={[styles.tabBadgeText, activeTab === "send" && styles.activeBadgeText]}>
-                    ${youOweAmount.toFixed(0)}
+                    {formatBadgeAmount(youOweAmount)}
                   </Text>
                 </View>
               </View>
@@ -723,7 +727,7 @@ const DebtDetails = ({ navigation, route }) => {
                     </Text>
                     <Text style={styles.debtLabel}>Amount</Text>
                     <Text style={[styles.amountReceived, { color: COLORS.primary }]}>
-                      $0.00
+                      {formatAmount(0)}
                     </Text>
                     <Text style={styles.issueDate}>
                       {activeTab === "send"
@@ -782,7 +786,7 @@ const DebtDetails = ({ navigation, route }) => {
                           </Text>
                           <Text style={styles.debtLabel}>Amount</Text>
                           <Text style={activeTab === "send" ? styles.amountSent : styles.amountReceived}>
-                            ${Number(debt.amount).toLocaleString()}
+                            {formatAmount(Number(debt.amount))}
                           </Text>
                           <Text style={styles.issueDate}>
                             Date of issue: {formatDate(debt.date)}
@@ -842,7 +846,7 @@ const DebtDetails = ({ navigation, route }) => {
                           </Text>
                           <Text style={styles.debtLabel}>Amount</Text>
                           <Text style={activeTab === "send" ? styles.amountSent : styles.amountReceived}>
-                            ${Number(debt.amount).toLocaleString()}
+                            {formatAmount(Number(debt.amount))}
                           </Text>
                           <Text style={styles.issueDate}>
                             Date of issue: {formatDate(debt.date)}
@@ -900,7 +904,7 @@ const DebtDetails = ({ navigation, route }) => {
                           <Text style={styles.debtValue}>{formatDate(debt.dueDate)}</Text>
                           <Text style={styles.debtLabel}>Amount</Text>
                           <Text style={activeTab === "send" ? styles.amountSent : styles.amountReceived}>
-                            ${Number(debt.amount).toLocaleString()}
+                            {formatAmount(Number(debt.amount))}
                           </Text>
                           <Text style={styles.issueDate}>
                             Date of issue: {formatDate(debt.date)}
@@ -1061,7 +1065,7 @@ const DebtDetails = ({ navigation, route }) => {
                         fontFamily: "Poppins-Regular",
                         textAlign: "center"
                       }}>
-                        {activeTab === "send" ? "Paying" : "Receiving"}: <Text style={{ fontWeight: "bold", color: "#111" }}>${selectedDebt.amount.toFixed(2)}</Text>
+                        {activeTab === "send" ? "Paying" : "Receiving"}: <Text style={{ fontWeight: "bold", color: "#111" }}>{formatAmount(selectedDebt.amount)}</Text>
                       </Text>
                       {selectedDebt.description && (
                         <Text style={{
@@ -1146,7 +1150,7 @@ const DebtDetails = ({ navigation, route }) => {
                             fontFamily: "Poppins-Regular",
                             fontWeight: hasInsufficientFunds ? "600" : "normal"
                           }}>
-                            ${currentBalance.toFixed(2)}
+                            {formatAmount(currentBalance)}
                           </Text>
                         </TouchableOpacity>
                       );

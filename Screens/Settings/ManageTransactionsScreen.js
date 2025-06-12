@@ -31,6 +31,7 @@ import { COLORS, SIZES, SHADOWS, CATEGORY_ICONS } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import BackButton from "../../Components/Buttons/BackButton";
 import { cleanupEmptyCategories } from "../../services/transactionService";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -55,6 +56,7 @@ const CHART_COLORS = [
 const ManageTransactionsScreen = () => {
   const navigation = useNavigation();
   const user = auth.currentUser;
+  const { formatAmount } = useCurrency();
 
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -313,9 +315,7 @@ const ManageTransactionsScreen = () => {
   const confirmDelete = (txn) => {
     Alert.alert(
       "Delete Transaction",
-      `Delete "${txn.description || "No description"}" of $${Math.abs(
-        txn.amount
-      ).toFixed(2)}?`,
+      `Delete "${txn.description || "No description"}" of ${formatAmount(Math.abs(txn.amount))}?`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -601,8 +601,7 @@ const ManageTransactionsScreen = () => {
                 { color: item.type === "Income" ? "#28B463" : "#FF3B30" },
               ]}
             >
-              {item.type === "Income" ? "+" : "-"}$
-              {Math.abs(item.amount || 0).toFixed(2)}
+              {item.type === "Income" ? "+" : "-"}{formatAmount(Math.abs(item.amount || 0))}
             </Text>
             <View style={styles.transactionActions}>
               <TouchableOpacity

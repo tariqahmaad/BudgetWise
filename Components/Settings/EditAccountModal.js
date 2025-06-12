@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { updateDoc, doc } from "firebase/firestore";
 import { firestore } from "../../firebase/firebaseConfig";
 import { COLORS } from "../../constants/theme";
+import { useCurrency } from "../../contexts/CurrencyContext";
 
 const EditAccountModal = ({
   isVisible,
@@ -25,6 +26,7 @@ const EditAccountModal = ({
   setIsLoading,
   isLoading,
 }) => {
+  const { getCurrencySymbol } = useCurrency();
   const [title, setTitle] = useState("");
   const [currentBalance, setCurrentBalance] = useState("");
   const [goalAmount, setGoalAmount] = useState("");
@@ -144,7 +146,7 @@ const EditAccountModal = ({
         <View style={styles.inputContainer}>
           <Text style={styles.label}>Current Balance</Text>
           <View style={styles.inputWrapper}>
-            <Text style={styles.currencySymbol}>$</Text>
+            <Text style={styles.currencySymbol}>{getCurrencySymbol()}</Text>
             <TextInput
               style={styles.input}
               value={currentBalance}
@@ -164,7 +166,7 @@ const EditAccountModal = ({
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Goal Amount</Text>
             <View style={styles.inputWrapper}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{getCurrencySymbol()}</Text>
               <TextInput
                 style={styles.input}
                 value={goalAmount}
@@ -178,7 +180,7 @@ const EditAccountModal = ({
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Current Saved Amount</Text>
             <View style={styles.inputWrapper}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{getCurrencySymbol()}</Text>
               <TextInput
                 style={styles.input}
                 value={currentAmount}

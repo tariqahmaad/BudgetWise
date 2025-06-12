@@ -33,6 +33,7 @@ import {
 } from "../../../firebase/firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 import { categorizeAndSortDebts } from "../../../utils/dateUtils";
+import { useCurrency } from "../../../contexts/CurrencyContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -44,6 +45,7 @@ const MODAL_RADIUS = Math.round(SCREEN_WIDTH * 0.055);
 
 const Debts = ({ navigation, route }) => {
   const { user } = useAuth();
+  const { formatAmount } = useCurrency();
   const {
     friendId,
     friendName,
@@ -394,7 +396,7 @@ const Debts = ({ navigation, route }) => {
         if (currentBalance < selectedDebt.amount) {
           Alert.alert(
             "Insufficient Funds",
-            `Your account "${account.title}" has a balance of $${currentBalance.toFixed(2)}, but you need $${selectedDebt.amount.toFixed(2)} to pay this debt.`,
+            `Your account "${account.title}" has a balance of ${formatAmount(currentBalance)}, but you need ${formatAmount(selectedDebt.amount)} to pay this debt.`,
             [{ text: "OK" }]
           );
           hideLoadingWithAnimation();
@@ -456,8 +458,8 @@ const Debts = ({ navigation, route }) => {
       await addDoc(collection(firestore, "users", user.uid, "transactions"), transactionData);
 
       const message = type === "owe"
-        ? `Debt of $${selectedDebt.amount.toFixed(2)} paid from "${account.title}"!`
-        : `Payment of $${selectedDebt.amount.toFixed(2)} received to "${account.title}"!`;
+        ? `Debt of ${formatAmount(selectedDebt.amount)} paid from "${account.title}"!`
+        : `Payment of ${formatAmount(selectedDebt.amount)} received to "${account.title}"!`;
 
       hideLoadingWithAnimation();
       showSuccessWithAnimation(message);
@@ -699,7 +701,7 @@ const Debts = ({ navigation, route }) => {
                         fontFamily: "Poppins-Regular",
                         textAlign: "center"
                       }}>
-                        {type === "owe" ? "Paying" : "Receiving"}: <Text style={{ fontWeight: "bold", color: "#111" }}>${selectedDebt.amount.toFixed(2)}</Text>
+                        {type === "owe" ? "Paying" : "Receiving"}: <Text style={{ fontWeight: "bold", color: "#111" }}>{formatAmount(selectedDebt.amount)}</Text>
                       </Text>
                       {selectedDebt.description && (
                         <Text style={{
@@ -784,7 +786,7 @@ const Debts = ({ navigation, route }) => {
                             fontFamily: "Poppins-Regular",
                             fontWeight: hasInsufficientFunds ? "600" : "normal"
                           }}>
-                            ${currentBalance.toFixed(2)}
+                            {formatAmount(currentBalance)}
                           </Text>
                         </TouchableOpacity>
                       );
