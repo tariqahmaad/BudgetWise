@@ -42,6 +42,7 @@ export const COLORS = {
   inputBackground: "#23262F", // Input field bg
   lightGray: "#E5E7EB", // For chart grid lines
   darkGray: "#23262F", // For input field and borders
+  gray: "#8E8E93", // Standard gray color
   DeepGreen: "#174C3C",
   DeepRed: "#7B1F24",
   LightRed: "#FFE5EC",

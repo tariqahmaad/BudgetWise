@@ -47,6 +47,8 @@ import { formatAmount } from "../../utils/formatAmount";
 import { cleanupEmptyCategories } from "../../services/transactionService";
 import AddAccountModal from "../../Components/Settings/AddAccountModal";
 import { useCurrency } from "../../contexts/CurrencyContext";
+import { useExchangeRate } from "../../contexts/ExchangeRateContext";
+import CurrencyExchangeModal from "../../Components/Exchange/CurrencyExchangeModal";
 
 // Create the map dynamically from the imported constant
 const CATEGORY_ICON_MAP = CATEGORY_ICONS.reduce((map, category) => {
@@ -103,6 +105,9 @@ const HomeScreen = ({ navigation }) => {
     // Currency context hook
     const { formatAmount: formatAmountWithCurrency } = useCurrency();
 
+    // Exchange rate context hook
+    const { convertAmount } = useExchangeRate();
+
     const [mainCardIndex, setMainCardIndex] = useState(0);
     const [subCardIndex, setSubCardIndex] = useState(0);
     const [mainCardsData, setMainCardsData] = useState([]);
@@ -137,6 +142,9 @@ const HomeScreen = ({ navigation }) => {
     // Add Account Modal state
     const [showAddAccountModal, setShowAddAccountModal] = useState(false);
     const [isAddingAccount, setIsAddingAccount] = useState(false);
+
+    // Currency Exchange Modal state
+    const [showExchangeModal, setShowExchangeModal] = useState(false);
 
     // Helper to get user
     const getUser = () => auth.currentUser;
@@ -1280,12 +1288,18 @@ const HomeScreen = ({ navigation }) => {
                             </Text>
                         </View>
                     </View>
-                    <TouchableOpacity style={styles.notificationContainer}>
-                        <Ionicons
-                            name="notifications-outline"
-                            size={34}
-                            color={COLORS.text}
-                        />
+                    <TouchableOpacity
+                        style={styles.exchangeContainer}
+                        onPress={() => setShowExchangeModal(true)}
+                        activeOpacity={0.8}
+                    >
+                        <View style={styles.exchangeIconWrapper}>
+                            <Ionicons
+                                name="swap-horizontal-outline"
+                                size={24}
+                                color={COLORS.text}
+                            />
+                        </View>
                     </TouchableOpacity>
                 </View>
 
@@ -1395,6 +1409,11 @@ const HomeScreen = ({ navigation }) => {
                     onSuccess={handleAddAccountSuccess}
                 />
             )}
+
+            <CurrencyExchangeModal
+                isVisible={showExchangeModal}
+                onClose={() => setShowExchangeModal(false)}
+            />
         </ScreenWrapper>
     );
 };
@@ -1437,8 +1456,23 @@ const styles = StyleSheet.create({
         color: COLORS.text,
         fontFamily: "Poppins-SemiBold",
     },
-    notificationContainer: {
-        padding: 8,
+    exchangeContainer: {
+        padding: 4,
+    },
+    exchangeIconWrapper: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#F8F9FA',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E9ECEF',
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
     },
     scrollContainer: {
         flex: 1,
