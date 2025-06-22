@@ -5,20 +5,20 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Image,
   Alert,
   Platform,
   Animated,
   Easing,
   TextInput,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import { COLORS, SIZES } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
-import Images from "../../constants/Images";
 import {
   auth,
   firestore,
@@ -28,6 +28,7 @@ import {
 } from "../../firebase/firebaseConfig";
 import BackButton from "../../Components/Buttons/BackButton";
 import SettingListItem from "../../Components/Common/SettingListItem";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Move InfoField component outside to prevent re-creation
 const InfoField = React.memo(
@@ -74,12 +75,13 @@ const ProfileScreen = () => {
     name: "",
     surname: "",
     email: user?.email || "",
-    avatar: Images.profilePic,
+    avatar: null,
   });
   const [fadeAnim] = useState(new Animated.Value(0));
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [editedData, setEditedData] = useState({
     name: "",
     surname: "",
@@ -104,11 +106,39 @@ const ProfileScreen = () => {
       const userDoc = await getDoc(doc(firestore, "users", user.uid));
       if (userDoc.exists()) {
         const data = userDoc.data();
+
+        // Robust avatar validation
+        let avatarValue = null;
+        if (data.avatar) {
+          if (
+            typeof data.avatar === "string" &&
+            data.avatar.trim().length > 0
+          ) {
+            // Only use avatar if it's a valid string
+            avatarValue = data.avatar.trim();
+          } else {
+            console.warn(
+              "Invalid avatar data type:",
+              typeof data.avatar,
+              data.avatar
+            );
+            // Clear invalid avatar from Firebase
+            try {
+              await updateDoc(doc(firestore, "users", user.uid), {
+                avatar: null,
+                updatedAt: new Date(),
+              });
+            } catch (cleanupError) {
+              console.error("Error cleaning up invalid avatar:", cleanupError);
+            }
+          }
+        }
+
         const userInfo = {
           name: data.name || "",
           surname: data.surname || "",
           email: user.email || "",
-          avatar: data.avatar || Images.profilePic,
+          avatar: avatarValue,
         };
         setUserData(userInfo);
         setEditedData({
@@ -120,7 +150,7 @@ const ProfileScreen = () => {
           name: "",
           surname: "",
           email: user.email || "",
-          avatar: Images.profilePic,
+          avatar: null,
         };
         setUserData(userInfo);
         setEditedData({
@@ -157,6 +187,145 @@ const ProfileScreen = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  // Image picker functions
+  const requestPermissions = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Sorry, we need camera roll permissions to change your profile picture.",
+        [{ text: "OK" }]
+      );
+      return false;
+    }
+    return true;
+  };
+
+  const pickImage = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    Alert.alert(
+      "Select Photo",
+      "Choose how you would like to select your profile picture",
+      [
+        { text: "Camera", onPress: () => openCamera() },
+        { text: "Photo Library", onPress: () => openImageLibrary() },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Required",
+        "Camera permission is required to take photos."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadImage(result.assets[0]);
+    }
+  };
+
+  const openImageLibrary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadImage(result.assets[0]);
+    }
+  };
+
+  const uploadImage = async (imageAsset) => {
+    if (!user || !imageAsset.base64) return;
+
+    setIsUploadingImage(true);
+    try {
+      const base64Image = `data:image/jpeg;base64,${imageAsset.base64}`;
+
+      // Validate that we have a proper string before saving
+      if (typeof base64Image !== "string" || base64Image.length < 50) {
+        throw new Error("Invalid image data");
+      }
+
+      // Update Firestore with the base64 image
+      await updateDoc(doc(firestore, "users", user.uid), {
+        avatar: base64Image,
+        updatedAt: new Date(),
+      });
+
+      // Update local state
+      setUserData((prev) => ({
+        ...prev,
+        avatar: base64Image,
+      }));
+
+      Alert.alert("Success", "Profile picture updated successfully!");
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      Alert.alert(
+        "Error",
+        "Failed to update profile picture. Please try again."
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const removeProfilePicture = async () => {
+    if (!user) return;
+
+    Alert.alert(
+      "Remove Profile Picture",
+      "Are you sure you want to remove your profile picture?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setIsUploadingImage(true);
+            try {
+              await updateDoc(doc(firestore, "users", user.uid), {
+                avatar: null,
+                updatedAt: new Date(),
+              });
+
+              setUserData((prev) => ({
+                ...prev,
+                avatar: null,
+              }));
+
+              Alert.alert("Success", "Profile picture removed successfully!");
+            } catch (error) {
+              console.error("Error removing profile picture:", error);
+              Alert.alert("Error", "Failed to remove profile picture.");
+            } finally {
+              setIsUploadingImage(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Use useCallback to prevent function recreation
   const handleNameChange = useCallback((text) => {
@@ -250,6 +419,46 @@ const ProfileScreen = () => {
     },
   ];
 
+  const clearCorruptAvatarData = async () => {
+    try {
+      if (!user) return;
+
+      console.log("Starting corrupt data cleanup...");
+
+      // Clear corrupt cache
+      const cacheKey = `@budgetwise_user_${user.uid}`;
+      await AsyncStorage.removeItem(cacheKey);
+      console.log("Cleared user cache");
+
+      // Check and fix Firebase data
+      const userDoc = await getDoc(doc(firestore, "users", user.uid));
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        if (data.avatar && typeof data.avatar !== "string") {
+          console.log(
+            "Fixing corrupt avatar data in Firebase, current type:",
+            typeof data.avatar
+          );
+          await updateDoc(doc(firestore, "users", user.uid), {
+            avatar: null,
+            updatedAt: new Date(),
+          });
+          console.log("Fixed corrupt avatar data in Firebase");
+        }
+      }
+
+      console.log("Corrupt data cleanup completed");
+    } catch (error) {
+      console.error("Error during cleanup:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      clearCorruptAvatarData();
+    }
+  }, []); // Run once when component mounts
+
   if (isLoading) {
     return (
       <ScreenWrapper backgroundColor={COLORS.white}>
@@ -307,13 +516,52 @@ const ProfileScreen = () => {
           >
             {/* Profile Section */}
             <View style={styles.profileSection}>
-              {userData.avatar ? (
-                <Image source={userData.avatar} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Ionicons name="person" size={40} color="#4B5563" />
-                </View>
-              )}
+              <View style={styles.avatarContainer}>
+                <TouchableOpacity
+                  onPress={pickImage}
+                  style={styles.avatarTouchable}
+                  disabled={isUploadingImage}
+                >
+                  {userData.avatar &&
+                  typeof userData.avatar === "string" &&
+                  userData.avatar.length > 0 ? (
+                    <Image
+                      source={{ uri: userData.avatar }}
+                      style={styles.avatar}
+                      onError={(error) => {
+                        console.error("Profile avatar load error:", error);
+                        // Clear the invalid avatar
+                        setUserData((prev) => ({ ...prev, avatar: null }));
+                      }}
+                    />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                      <Ionicons name="person" size={40} color="#4B5563" />
+                    </View>
+                  )}
+
+                  {/* Camera Icon Overlay */}
+                  <View style={styles.cameraIconContainer}>
+                    {isUploadingImage ? (
+                      <ActivityIndicator size="small" color={COLORS.white} />
+                    ) : (
+                      <Ionicons name="camera" size={16} color={COLORS.white} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {/* Remove Picture Button */}
+                {userData.avatar && typeof userData.avatar === "string" && (
+                  <TouchableOpacity
+                    onPress={removeProfilePicture}
+                    style={styles.removePictureButton}
+                    disabled={isUploadingImage}
+                  >
+                    <Text style={styles.removePictureText}>Remove Picture</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <Text style={styles.name}>{getFullName()}</Text>
               {userData.email && (
                 <Text style={styles.email}>{userData.email}</Text>
@@ -517,16 +765,45 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     paddingVertical: 20,
   },
+  avatarContainer: {
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  avatarTouchable: {
+    position: "relative",
+  },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
   },
   avatarPlaceholder: {
     backgroundColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
+  },
+  cameraIconContainer: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: COLORS.white,
+  },
+  removePictureButton: {
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  removePictureText: {
+    fontSize: 14,
+    color: "#FF3B30",
+    fontFamily: "Poppins-Medium",
   },
   name: {
     fontSize: 24,

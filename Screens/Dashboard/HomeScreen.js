@@ -539,7 +539,18 @@ const HomeScreen = ({ navigation }) => {
       if (!isConnected) {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
-          setUserData(JSON.parse(cached));
+          try {
+            const parsedData = JSON.parse(cached);
+            // Validate cached avatar data
+            if (parsedData.avatar && typeof parsedData.avatar !== "string") {
+              parsedData.avatar = null;
+            }
+            setUserData(parsedData);
+          } catch (parseError) {
+            console.error("Error parsing cached user data:", parseError);
+            // Clear corrupt cache
+            AsyncStorage.removeItem(cacheKey);
+          }
         }
         return;
       }
@@ -547,15 +558,51 @@ const HomeScreen = ({ navigation }) => {
         const userDoc = await getDoc(doc(firestore, "users", user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
+
+          // Robust avatar validation
+          let avatarValue = null;
+          if (data.avatar) {
+            if (
+              typeof data.avatar === "string" &&
+              data.avatar.trim().length > 0
+            ) {
+              avatarValue = data.avatar.trim();
+            } else {
+              console.warn(
+                "HomeScreen: Invalid avatar data type:",
+                typeof data.avatar
+              );
+              // Clear invalid avatar from Firebase
+              try {
+                await updateDoc(doc(firestore, "users", user.uid), {
+                  avatar: null,
+                  updatedAt: new Date(),
+                });
+              } catch (cleanupError) {
+                console.error(
+                  "Error cleaning up invalid avatar:",
+                  cleanupError
+                );
+              }
+            }
+          }
+
           const userObj = {
             name: data.name || "",
             surname: data.surname || "",
-            avatar: data.avatar ? { uri: data.avatar } : Images.profilePic,
+            avatar: avatarValue,
           };
           setUserData(userObj);
           AsyncStorage.setItem(cacheKey, JSON.stringify(userObj)).catch(
             () => {}
           );
+        } else {
+          const userObj = {
+            name: "",
+            surname: "",
+            avatar: null,
+          };
+          setUserData(userObj);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -571,17 +618,39 @@ const HomeScreen = ({ navigation }) => {
     if (!user) return;
 
     const unsubscribe = navigation.addListener("focus", async () => {
-      // Refresh user data when screen comes into focus
       try {
         const userDoc = await getDoc(doc(firestore, "users", user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
+
+          // Robust avatar validation for focus refresh
+          let avatarValue = null;
+          if (data.avatar) {
+            if (
+              typeof data.avatar === "string" &&
+              data.avatar.trim().length > 0
+            ) {
+              avatarValue = data.avatar.trim();
+            } else {
+              console.warn(
+                "HomeScreen focus: Invalid avatar data type:",
+                typeof data.avatar
+              );
+            }
+          }
+
           const userObj = {
             name: data.name || "",
             surname: data.surname || "",
-            avatar: data.avatar ? { uri: data.avatar } : Images.profilePic,
+            avatar: avatarValue,
           };
           setUserData(userObj);
+
+          // Update cache as well
+          const cacheKey = `@budgetwise_user_${user.uid}`;
+          AsyncStorage.setItem(cacheKey, JSON.stringify(userObj)).catch(
+            () => {}
+          );
         }
       } catch (error) {
         console.error("Error refreshing user data:", error);
@@ -1286,7 +1355,8 @@ const HomeScreen = ({ navigation }) => {
           setUserData({
             name: data.name || "",
             surname: data.surname || "",
-            avatar: data.avatar ? { uri: data.avatar } : Images.profilePic,
+            // Fix: Store avatar string directly
+            avatar: data.avatar || null,
           });
         }
       } catch (error) {
@@ -1304,18 +1374,25 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.profileSection}>
           <View style={styles.profileContainer}>
             <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
-              {userData.avatar ? (
+              {userData.avatar &&
+              typeof userData.avatar === "string" &&
+              userData.avatar.length > 0 ? (
                 <Image
-                  source={userData.avatar}
-                  style={[styles.profileImage, { borderRadius: 20 }]}
+                  source={{ uri: userData.avatar }}
+                  style={styles.profileImage}
+                  onError={(error) => {
+                    console.error(
+                      "HomeScreen profile image load error:",
+                      error
+                    );
+                    // Clear the invalid avatar
+                    setUserData((prev) => ({ ...prev, avatar: null }));
+                  }}
                 />
               ) : (
-                <Ionicons
-                  name="person-circle-outline"
-                  size={40}
-                  color={COLORS.text}
-                  style={styles.profileImage}
-                />
+                <View style={styles.profileImagePlaceholder}>
+                  <Ionicons name="person" size={25} color={COLORS.text} />
+                </View>
               )}
             </TouchableOpacity>
             <View style={styles.welcomeTextContainer}>
@@ -1323,7 +1400,7 @@ const HomeScreen = ({ navigation }) => {
               <Text style={styles.userName}>
                 {userData.name && userData.surname
                   ? `${userData.name} ${userData.surname}`
-                  : "User"}
+                  : userData.name || "User"}
               </Text>
             </View>
           </View>
@@ -1480,7 +1557,17 @@ const styles = StyleSheet.create({
   profileImage: {
     width: 50,
     height: 50,
+    borderRadius: 25, // Add this line to make it circular
     marginRight: 15,
+  },
+  profileImagePlaceholder: {
+    width: 50,
+    height: 50,
+    marginRight: 15,
+    borderRadius: 25,
+    backgroundColor: "#F0F0F0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   welcomeTextContainer: {
     flexDirection: "column",
