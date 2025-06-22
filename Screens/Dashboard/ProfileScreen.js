@@ -29,6 +29,7 @@ import {
 import BackButton from "../../Components/Buttons/BackButton";
 import SettingListItem from "../../Components/Common/SettingListItem";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { compressImage, validateImageSize } from "../../utils/imageCompression";
 
 // Move InfoField component outside to prevent re-creation
 const InfoField = React.memo(
@@ -231,8 +232,7 @@ const ProfileScreen = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1, // Use highest quality, we'll compress it ourselves
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -245,8 +245,7 @@ const ProfileScreen = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
+      quality: 1, // Use highest quality, we'll compress it ourselves
     });
 
     if (!result.canceled && result.assets[0]) {
@@ -255,18 +254,46 @@ const ProfileScreen = () => {
   };
 
   const uploadImage = async (imageAsset) => {
-    if (!user || !imageAsset.base64) return;
+    if (!user || !imageAsset.uri) return;
 
     setIsUploadingImage(true);
     try {
-      const base64Image = `data:image/jpeg;base64,${imageAsset.base64}`;
+      console.log("🚀 Starting image upload and compression...");
+      console.log(`📊 Original image URI: ${imageAsset.uri}`);
+
+      // Get original file size if available from imageAsset
+      if (imageAsset.fileSize) {
+        console.log(
+          `📏 Original file size: ${(imageAsset.fileSize / 1024).toFixed(2)}KB`
+        );
+      }
+
+      // Compress the image to 500KB max
+      const compressed = await compressImage(imageAsset.uri, 500, 800, 800);
+
+      if (!compressed || !compressed.base64) {
+        throw new Error("Failed to compress image");
+      }
+
+      // Validate the compressed image size
+      if (!validateImageSize(compressed.base64, 500)) {
+        Alert.alert(
+          "Image Too Large",
+          "The image is still too large after compression. Please try a smaller image."
+        );
+        return;
+      }
+
+      const base64Image = `data:image/jpeg;base64,${compressed.base64}`;
 
       // Validate that we have a proper string before saving
       if (typeof base64Image !== "string" || base64Image.length < 50) {
         throw new Error("Invalid image data");
       }
 
-      // Update Firestore with the base64 image
+      console.log("💾 Uploading compressed image to Firebase...");
+
+      // Update Firestore with the compressed base64 image
       await updateDoc(doc(firestore, "users", user.uid), {
         avatar: base64Image,
         updatedAt: new Date(),
@@ -278,12 +305,17 @@ const ProfileScreen = () => {
         avatar: base64Image,
       }));
 
+      // Calculate and log final base64 size
+      const finalBase64Size = base64Image.length;
+      const finalSizeKB = (finalBase64Size / 1024).toFixed(2);
+      console.log(`✅ Upload successful! Final base64 size: ${finalSizeKB}KB`);
+
       Alert.alert("Success", "Profile picture updated successfully!");
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("❌ Error uploading image:", error);
       Alert.alert(
         "Error",
-        "Failed to update profile picture. Please try again."
+        error.message || "Failed to update profile picture. Please try again."
       );
     } finally {
       setIsUploadingImage(false);
