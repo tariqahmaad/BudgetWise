@@ -100,10 +100,7 @@ export const deleteUserAccount = async (user) => {
       console.log("No friends to delete or error:", error.message);
     }
 
-    // Check for any other subcollections you might have
-    // You can add more subcollections here if needed
-
-    // 2. Delete the main user document
+    // 2. Delete the main user document FIRST (before deleting auth account)
     try {
       await deleteDoc(userDocRef);
       console.log("Main user document deleted successfully");
@@ -124,6 +121,8 @@ export const deleteUserAccount = async (user) => {
     // 4. Delete the authentication account (this must be last)
     await deleteUser(user);
     console.log("Authentication account deleted successfully");
+
+    // Note: deleteUser automatically signs out the user, so no need for manual signOut
 
     return { success: true };
   } catch (error) {

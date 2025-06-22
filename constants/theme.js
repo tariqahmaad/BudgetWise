@@ -47,7 +47,11 @@ export const COLORS = {
   DeepRed: "#7B1F24",
   LightRed: "#FFE5EC",
   LightGreen: "#E6F9F0",
-  BrightGreen: "#12B76A"
+  BrightGreen: "#12B76A",
+
+  // Add error and warning colors
+  error: "#FF3B30",
+  warning: "#FFA500",
 };
 
 export const SIZES = {

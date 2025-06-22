@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
 } from "react-native";
 import React, { useState } from "react";
 import HorizontalLine from "../HorizontalLine";
@@ -32,6 +32,14 @@ const INPUT_CONFIG = {
     autoCapitalize: "none",
     secureTextEntry: true,
   },
+  confirmpassword: {
+    placeholder: "confirm password",
+    keyboardType: "default",
+    icon: "lock",
+    iconType: "Feather",
+    autoCapitalize: "none",
+    secureTextEntry: true,
+  },
   phone: {
     placeholder: "123-456-7890",
     keyboardType: "phone-pad",
@@ -43,16 +51,16 @@ const INPUT_CONFIG = {
   name: {
     placeholder: "Enter your name",
     keyboardType: "default",
-    icon: "user",
-    iconType: "Feather",
+    icon: "person-outline",
+    iconType: "Ionicons",
     autoCapitalize: "words",
     secureTextEntry: false,
   },
   surname: {
     placeholder: "Enter your surname",
     keyboardType: "default",
-    icon: "user",
-    iconType: "Feather",
+    icon: "person-outline",
+    iconType: "Ionicons",
     autoCapitalize: "words",
     secureTextEntry: false,
   },
@@ -109,7 +117,18 @@ const IconComponents = {
 };
 
 const getInputConfig = (title) => {
-  const key = title.toLowerCase();
+  // Normalize the title to handle multi-word titles and match exact keys
+  let key = title.toLowerCase().trim();
+
+  // Handle specific multi-word cases
+  if (key.includes("email")) {
+    key = "email";
+  } else if (key.includes("phone")) {
+    key = "phone";
+  } else if (key === "confirm password") {
+    key = "confirmpassword";
+  }
+
   return (
     INPUT_CONFIG[key] || {
       placeholder: `Enter ${title}`,
@@ -161,39 +180,43 @@ const InputField = ({
     const lowerTitle = fieldTitle.toLowerCase();
 
     // Description field - only allow letters and spaces
-    if (lowerTitle === 'description') {
+    if (lowerTitle === "description") {
       // Check if text contains invalid characters (numbers or special characters)
       const hasInvalidChars = /[^a-zA-Z\s]/.test(text);
 
       if (hasInvalidChars && text.length > 0) {
-        setValidationWarning("Description should only contain letters and spaces");
+        setValidationWarning(
+          "Description should only contain letters and spaces"
+        );
       } else {
         setValidationWarning("");
       }
 
       // Remove any characters that are not letters or spaces
-      const lettersOnly = text.replace(/[^a-zA-Z\s]/g, '');
+      const lettersOnly = text.replace(/[^a-zA-Z\s]/g, "");
       return lettersOnly;
     }
 
     // Amount field - only allow numbers and decimal point
-    if (lowerTitle === 'amount') {
+    if (lowerTitle === "amount") {
       // Check if text contains invalid characters (non-numeric except decimal)
       const hasInvalidChars = /[^0-9.]/.test(text);
 
       if (hasInvalidChars && text.length > 0) {
-        setValidationWarning("Amount should only contain numbers and decimal point");
+        setValidationWarning(
+          "Amount should only contain numbers and decimal point"
+        );
       } else {
         setValidationWarning("");
       }
 
       // Remove any characters that are not numbers or decimal point
-      const numbersOnly = text.replace(/[^0-9.]/g, '');
+      const numbersOnly = text.replace(/[^0-9.]/g, "");
 
       // Ensure only one decimal point
-      const parts = numbersOnly.split('.');
+      const parts = numbersOnly.split(".");
       if (parts.length > 2) {
-        return `${parts[0]}.${parts.slice(1).join('')}`;
+        return `${parts[0]}.${parts.slice(1).join("")}`;
       }
 
       return numbersOnly;
@@ -365,10 +388,10 @@ const InputField = ({
             error
               ? COLORS.error
               : validationWarning
-                ? COLORS.warning || "#FFA500"
-                : isFocused
-                  ? COLORS.primary
-                  : COLORS.authDivider
+              ? COLORS.warning || "#FFA500"
+              : isFocused
+              ? COLORS.primary
+              : COLORS.authDivider
           }
         />
       </View>
