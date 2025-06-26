@@ -5,7 +5,7 @@ import { GEMINI_API_KEY } from '@env';
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
 // Get the Gemini Pro model
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite-preview-06-17" });
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -220,8 +220,10 @@ export const generateChatResponse = async (
 ) => {
     try {
         console.log("[Gemini Service LOG] generateChatResponse called.");
-        // Log received data
-        console.log("[Gemini Service LOG] Received User Profile:", JSON.stringify(userProfile));
+        // Log received data (excluding sensitive/large data)
+        console.log("[Gemini Service LOG] User has name:", !!userProfile?.name);
+        console.log("[Gemini Service LOG] Avatar data detected (NOT sent to AI):", !!userProfile?.avatar);
+        console.log("[Gemini Service LOG] Avatar size (NOT sent to AI):", userProfile?.avatar?.length || 0, "characters");
         console.log("[Gemini Service LOG] Received Transaction Summary:", JSON.stringify(transactionSummary));
         console.log("[Gemini Service LOG] Received Transactions Count:", transactions?.length);
         console.log("[Gemini Service LOG] Received Accounts Count:", accounts?.length);
@@ -237,12 +239,34 @@ export const generateChatResponse = async (
             "Finance", "Travel", "Health & Fitness", "Gaming", "Books"
         ];
 
-        // Format accounts and transactions as JSON for clarity
-        const accountsJson = JSON.stringify(accounts, null, 2);
-        // Limit to 30 most recent transactions
+        // Format accounts and transactions as JSON for clarity, excluding any potential image data
+        const sanitizedAccounts = accounts?.map(account => ({
+            id: account.id,
+            title: account.title,
+            type: account.type,
+            balance: account.balance,
+            currentBalance: account.currentBalance,
+            totalIncome: account.totalIncome,
+            totalExpenses: account.totalExpenses,
+            backgroundColor: account.backgroundColor
+            // Exclude any potential image/avatar fields that could contain base64 data
+        })) || [];
+        const accountsJson = JSON.stringify(sanitizedAccounts, null, 2);
+
+        // Include ALL current month transactions (no limit) and sanitize them
         const sortedTransactions = [...transactions].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-        const recentTransactions = sortedTransactions.slice(0, 30);
+        const recentTransactions = sortedTransactions.map(tx => ({
+            id: tx.id,
+            amount: tx.amount,
+            category: tx.category,
+            description: tx.description,
+            createdAt: tx.createdAt,
+            accountId: tx.accountId
+            // Exclude any potential image/attachment fields
+        }));
         const transactionsJson = JSON.stringify(recentTransactions, null, 2);
+
+        console.log("[Gemini Service LOG] Sending to AI:", recentTransactions.length, "transactions out of", transactions?.length, "total current month transactions");
 
         // Human-readable summaries
         const topCategoriesText = topCategories.length
@@ -255,6 +279,13 @@ export const generateChatResponse = async (
         // Detect if this is the first user message in the chat history
         const isFirstUserMessage = currentChatHistory.filter(msg => msg.role === 'user').length === 1;
 
+        // Create minimal user profile - AI only needs name for personalization, nothing else
+        const minimalUserProfile = {
+            name: userProfile?.name || null,
+            surname: userProfile?.surname || null
+            // AI doesn't need: avatar (images), email (privacy), or any other personal data
+        };
+
         // Instruction for the model
         const contextInstruction = `
 You are BudgetWise, a smart, friendly, and professional financial assistant. Your job is to help users understand, manage, and optimize their personal finances.
@@ -265,7 +296,6 @@ ${isFirstUserMessage ? `- Greet the user warmly and use their name if available 
 - If the user asks for explanations, break down financial concepts in simple terms, using examples when helpful.
 - When showing data (like spending summaries or category breakdowns), use bullet points or tables for clarity, using markdown formatting.
 - If the user asks for recommendations, suggest realistic steps and offer to set reminders or track progress.
-- If you detect concerning trends (e.g., overspending, missed savings goals), gently point them out and offer supportive suggestions.
 - Always respect user privacy and never make assumptions about their financial situation.
 - End each response with a positive, motivating note or a question to keep the conversation going.
 - Use markdown formatting for lists, code, and tables when appropriate.
@@ -278,11 +308,10 @@ ${isFirstUserMessage ? `- Greet the user warmly and use their name if available 
 - When parsing user transaction requests, map their descriptions to the closest predefined category
 
 Today's date: ${today}
-
 Predefined Categories Available: ${predefinedCategories.join(', ')}
 
 User Profile:
-${JSON.stringify(userProfile, null, 2)}
+${JSON.stringify(minimalUserProfile, null, 2)}
 
 Accounts:
 ${accountsJson}
@@ -294,9 +323,8 @@ Transaction Summary:
 ${topCategoriesText}
 - Largest transaction: ${largestTxText}
 
-Recent Transactions (JSON array, most recent first, max 30):
-${transactionsJson}
-`;
+Recent Transactions (JSON array, most recent first, ALL current month transactions):
+${transactionsJson}`;
 
         // Get the latest user message
         const latestUserMessage = currentChatHistory[currentChatHistory.length - 1];
@@ -305,18 +333,62 @@ ${transactionsJson}
         }
 
         // Prepend the context to the user's message
+        const fullContextMessage = `${contextInstruction}\nUser Query: ${latestUserMessage.parts[0].text}`;
         const userMessageWithContext = {
             ...latestUserMessage,
-            parts: [{ text: `${contextInstruction}\nUser Query: ${latestUserMessage.parts[0].text}` }]
+            parts: [{ text: fullContextMessage }]
         };
 
-        // Use the rest of the history (excluding the latest user message)
+        // Log context size for monitoring token usage
+        console.log("[Gemini Service LOG] Context message length:", fullContextMessage.length, "characters");
+        console.log("[Gemini Service LOG] Estimated tokens:", Math.ceil(fullContextMessage.length / 4));
+
+        // Use the rest of the history (excluding the latest user message) and sanitize it
         let historyForChatApi = currentChatHistory.slice(0, -1);
 
         // Remove all leading non-user messages
         while (historyForChatApi.length > 0 && historyForChatApi[0].role !== 'user') {
             historyForChatApi.shift();
         }
+
+        // Sanitize chat history for Gemini API - remove custom fields and convert to valid format
+        historyForChatApi = historyForChatApi.map(message => {
+            // Only include valid roles
+            if (message.role !== 'user' && message.role !== 'model') {
+                return null;
+            }
+
+            // Process parts array to extract only text content
+            const sanitizedParts = [];
+
+            if (message.parts && Array.isArray(message.parts)) {
+                message.parts.forEach(part => {
+                    // Handle different part types
+                    if (part.text) {
+                        // Standard text part
+                        sanitizedParts.push({ text: part.text });
+                    } else if (part.type === 'image' && part.text) {
+                        // For image messages, only include the text description, not the image data
+                        sanitizedParts.push({ text: part.text });
+                    }
+                    // Skip parts with custom fields like transactionData, showActionButtons, etc.
+                });
+            }
+
+            // If no valid parts found, create a default text part
+            if (sanitizedParts.length === 0) {
+                sanitizedParts.push({ text: '[Message content not available]' });
+            }
+
+            return {
+                role: message.role,
+                parts: sanitizedParts
+            };
+        }).filter(message => message !== null); // Remove any null entries
+
+        // Log sanitized history for debugging
+        console.log("[Gemini Service LOG] Sanitized chat history length:", historyForChatApi.length);
+        console.log("[Gemini Service LOG] Sanitized history sample:", JSON.stringify(historyForChatApi.slice(-2), null, 2));
 
         // Start chat and send the message with context using retry logic
         const response = await retryWithBackoff(async () => {
