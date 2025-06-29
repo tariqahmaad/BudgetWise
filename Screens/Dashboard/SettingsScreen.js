@@ -196,7 +196,6 @@ const SettingsScreen = () => {
                 currency settings
               </Text>
             </View>
-
             {/* Financial Management */}
             <SectionHeader title="Financial Management" />
             <View style={styles.settingsGroup}>
@@ -219,8 +218,7 @@ const SettingsScreen = () => {
               <Text style={styles.settingDescription}>
                 View and manage your financial accounts and transaction history
               </Text>
-            </View>
-
+            </View>{" "}
             {/* Security & Privacy */}
             <SectionHeader title="Security & Privacy" />
             <View style={styles.settingsGroup}>
@@ -234,7 +232,6 @@ const SettingsScreen = () => {
                 Secure your account with password changes and privacy settings
               </Text>
             </View>
-
             {/* Support & About */}
             <SectionHeader title="Support & About" />
             <View style={styles.settingsGroup}>
@@ -259,7 +256,6 @@ const SettingsScreen = () => {
                 development team
               </Text>
             </View>
-
             {/* Account Actions */}
             <SectionHeader title="Account Actions" />
             <View style={styles.settingsGroup}>
@@ -282,7 +278,6 @@ const SettingsScreen = () => {
                 Sign out of your BudgetWise account on this device
               </Text>
             </View>
-
             {/* Danger Zone */}
             <SectionHeader title="Danger Zone" />
             <View style={styles.dangerZoneGroup}>

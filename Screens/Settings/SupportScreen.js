@@ -18,10 +18,9 @@ const SupportScreen = ({ navigation }) => {
   const handleEmailPress = () => {
     Linking.openURL("mailto:tariq_muzamil@live.com");
   };
-
   const handleFAQPress = () => {
-    // Navigate to FAQ or show expandable FAQ section
-    Alert.alert("FAQ", "Coming soon - Frequently Asked Questions");
+    // Navigate to FAQ page
+    navigation.navigate("FAQ");
   };
 
   const handleReportBugPress = () => {

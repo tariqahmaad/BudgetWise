@@ -26,6 +26,7 @@ import ChangePasswordScreen from "../Screens/Settings/ChangePasswordScreen";
 import PrivacyPolicyScreen from "../Screens/Settings/PrivacyPolicyScreen";
 import SupportScreen from "../Screens/Settings/SupportScreen";
 import AboutScreen from "../Screens/Settings/AboutScreen";
+import FAQScreen from "../Screens/Settings/FAQScreen";
 import CurrencySelectionScreen from "../Screens/Settings/CurrencySelectionScreen";
 import ProfileSetupPage from "../Screens/ProfileSetupPage";
 import { firestore, doc, onSnapshot } from "../firebase/firebaseConfig";
@@ -89,6 +90,7 @@ const DashboardStack = () => (
     <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
     <Stack.Screen name="About" component={AboutScreen} />
+    <Stack.Screen name="FAQ" component={FAQScreen} />
   </Stack.Navigator>
 );
 
