@@ -33,5 +33,11 @@ yarn-error.*
 .env*.local
 .env
 
+.cursor/
+.cursor/rules
+.cursorignore
+.vscode/
+
 # typescript
 *.tsbuildinfo
+

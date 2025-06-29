@@ -5,13 +5,14 @@ import {
   View,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  Animated,
+  Easing,
+  Keyboard, // Add this import
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import ScreenWrapper from "../../Components/ScreenWrapper";
-import BackButton from "../../Components/Buttons/BackButton";
-import OtherAuthenticationMethodsButton from "../../Components/Buttons/OtherAuthenticationMethodsButton";
 import InputField from "../../Components/InputField/InputField";
-import HorizontalLine from "../../Components/HorizontalLine";
 import CustomButton from "../../Components/Buttons/CustomButton";
 import { COLORS, SIZES } from "../../constants/theme";
 import { useNavigation } from "@react-navigation/native";
@@ -19,46 +20,148 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../firebase/firebaseConfig";
 
 const LoginPage = () => {
-  const [showPasswords, setShowPasswords] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [keyboardVisible, setKeyboardVisible] = useState(false); // Add this state
 
   const navigation = useNavigation();
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const errorFadeAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+
+    // Add keyboard listeners
+    const keyboardDidShowListener = Keyboard.addListener(
+      "keyboardDidShow",
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      "keyboardDidHide",
+      () => setKeyboardVisible(false)
+    );
+
+    // Cleanup listeners
+    return () => {
+      keyboardDidShowListener?.remove();
+      keyboardDidHideListener?.remove();
+    };
+  }, []);
+
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    // Email validation - only check if empty
+    if (!formData.email.trim()) {
+      newErrors.email = "Email is required";
+    }
+
+    // Password validation - only check if empty
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const showError = (message) => {
+    setErrorMessage(message);
+    Animated.sequence([
+      Animated.timing(errorFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.delay(4000),
+      Animated.timing(errorFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setErrorMessage("");
+    });
+  };
   const handleSignUpPress = () => {
     navigation.navigate("SignUp");
   };
 
-  const handleBackPress = () => {
-    navigation.goBack();
-    console.log("Back Button Pressed");
-  };
-
   const handleSignIn = async () => {
-    // TODO: Implement sign up logic
-    console.log("Sign In Button Pressed");
-    console.log(`Email: ${formData.email}`);
-    console.log(`Password: ${formData.password}`);
+    // Clear previous errors
+    setErrors({});
+    setErrorMessage("");
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       const userCredential = await signInWithEmailAndPassword(
         auth,
-        formData.email,
+        formData.email.trim(),
         formData.password
       );
 
-      const user = userCredential.user;
-      console.log("User signed in:", user.uid);
+      console.log("User signed in:", userCredential.user.uid);
+      // Navigation will be handled by auth state change
     } catch (error) {
       console.error("Error signing in:", error.message);
-    }
-  };
 
-  const handleSocialAuth = (provider) => {
-    // TODO: Implement social authentication
-    console.log(`${provider} authentication pressed`);
+      let errorMsg = "An error occurred during sign in";
+
+      switch (error.code) {
+        case "auth/user-not-found":
+          errorMsg = "No account found with this email address";
+          break;
+        case "auth/wrong-password":
+          errorMsg = "Incorrect password. Please try again";
+          break;
+        case "auth/invalid-email":
+          errorMsg = "Please enter a valid email address";
+          break;
+        case "auth/user-disabled":
+          errorMsg = "This account has been disabled";
+          break;
+        case "auth/too-many-requests":
+          errorMsg = "Too many failed attempts. Please try again later";
+          break;
+        case "auth/network-request-failed":
+          errorMsg = "Network error. Please check your connection";
+          break;
+        case "auth/invalid-credential":
+          errorMsg = "Invalid email or password. Please check your credentials";
+          break;
+        default:
+          errorMsg = error.message;
+      }
+
+      showError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -66,87 +169,123 @@ const LoginPage = () => {
       ...prev,
       [field]: value,
     }));
+
+    // Clear field error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: "",
+      }));
+    }
   };
 
   const togglePasswordVisibility = () => {
-    setShowPasswords(!showPasswords);
+    setShowPassword(!showPassword);
+  };
+
+  // Add this function to check if form is valid for button state
+  const isFormValid = () => {
+    return formData.email.trim() && formData.password;
   };
 
   return (
-    <ScreenWrapper backgroundColor={COLORS.authBackground}>
+    <ScreenWrapper backgroundColor={COLORS.white}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0} // Add this
       >
-        <View style={styles.header}>
-          <BackButton onPress={handleBackPress} />
-          <Text style={styles.headerText}>Sign In</Text>
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.socialAuthContainer}>
-            <View style={styles.socialAuth}>
-              <OtherAuthenticationMethodsButton
-                type="Google"
-                onPress={() => handleSocialAuth("Google")}
-              />
-              <OtherAuthenticationMethodsButton
-                type="Facebook"
-                onPress={() => handleSocialAuth("Facebook")}
-              />
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scrollContent,
+              keyboardVisible && styles.scrollContentKeyboard, // Add conditional styling
+            ]}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag" // Add this
+            scrollEventThrottle={16} // Add this for smoother scrolling
+          >
+            {/* Welcome Section */}
+            <View style={styles.welcomeSection}>
+              <Text style={styles.welcomeTitle}>Welcome Back!</Text>
+              <Text style={styles.welcomeSubtitle}>
+                Sign in to your account to continue managing your finances
+              </Text>
             </View>
-          </View>
 
-          <View style={styles.separator}>
-            <HorizontalLine />
-            <Text style={styles.separatorText}>Or</Text>
-            <HorizontalLine />
-          </View>
+            {/* Error Message */}
+            {errorMessage ? (
+              <Animated.View
+                style={[styles.errorContainer, { opacity: errorFadeAnim }]}
+              >
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </Animated.View>
+            ) : null}
 
-          <View style={styles.form}>
-            <InputField
-              title="Email"
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={formData.email}
-              onChangeText={(value) => handleInputChange("email", value)}
+            {/* Sign In Form */}
+            <View style={styles.formSection}>
+              <InputField
+                title="Email Address"
+                placeholder="Enter your email address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={formData.email}
+                onChangeText={(value) => handleInputChange("email", value)}
+                error={errors.email}
+                icon="mail-outline"
+                iconType="Ionicons"
+              />
+
+              <InputField
+                title="Password"
+                placeholder="Enter your password"
+                secureTextEntry={!showPassword}
+                value={formData.password}
+                onChangeText={(value) => handleInputChange("password", value)}
+                showPasswordToggle
+                onPasswordToggle={togglePasswordVisibility}
+                error={errors.password}
+                icon="lock"
+                iconType="Feather"
+              />
+
+              <Text
+                style={styles.forgotPassword}
+                onPress={() => navigation.navigate("ForgotPassword")}
+              >
+                Forgot your password?
+              </Text>
+            </View>
+
+            {/* Sign In Button */}
+            <CustomButton
+              title="Sign In"
+              onPress={handleSignIn}
+              style={styles.signInButton}
+              loading={isLoading}
+              disabled={!isFormValid() || isLoading}
             />
-            <InputField
-              title="Password"
-              placeholder="Enter your password"
-              secureTextEntry={!showPasswords}
-              value={formData.password}
-              onChangeText={(value) => handleInputChange("password", value)}
-              showPasswordToggle
-              onPasswordToggle={togglePasswordVisibility}
-            />
 
-            <Text
-              style={styles.forgotPassword}
-              onPress={() => navigation.navigate("ForgotPassword")}
-            >
-              Forgot your Password?
-            </Text>
-          </View>
+            {/* Separator */}
+            <View style={styles.separator}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>or</Text>
+              <View style={styles.separatorLine} />
+            </View>
 
-          <CustomButton
-            title="Sign In"
-            onPress={handleSignIn}
-            style={styles.signUpButton}
-          />
-
-          <Text style={styles.loginPrompt}>
-            Dont have an account?{" "}
-            <Text style={styles.SignUpLink} onPress={handleSignUpPress}>
-              Sign Up
-            </Text>
-          </Text>
-        </ScrollView>
+            {/* Sign Up Prompt */}
+            <View style={styles.signUpSection}>
+              <Text style={styles.signUpPrompt}>
+                Don't have an account?{" "}
+                <Text style={styles.signUpLink} onPress={handleSignUpPress}>
+                  Create Account
+                </Text>
+              </Text>
+            </View>
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
     </ScreenWrapper>
   );
@@ -159,67 +298,104 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: SIZES.padding.xxxlarge,
-    paddingTop: SIZES.padding.xxxxlarge,
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingHorizontal: SIZES.padding.xxlarge,
+    paddingVertical: SIZES.padding.large,
+    backgroundColor: COLORS.white,
   },
-  headerText: {
-    fontSize: SIZES.font.xxxlarge,
-    fontFamily: "Poppins-Medium",
-    marginTop: SIZES.padding.xxlarge,
-    color: COLORS.authText,
+  centerContainer: {
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontFamily: "Poppins-SemiBold",
+    color: COLORS.text,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: SIZES.padding.xxlarge,
   },
   scrollContent: {
-    paddingHorizontal: SIZES.padding.xxxlarge,
-    paddingBottom: SIZES.padding.xxlarge,
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingBottom: SIZES.padding.xxxxlarge,
   },
-  socialAuthContainer: {
-    marginTop: SIZES.padding.xxlarge,
+  scrollContentKeyboard: {
+    justifyContent: "flex-start", // Change alignment when keyboard is visible
+    paddingTop: SIZES.padding.large, // Add some top padding
   },
-  socialAuthTitle: {
+  welcomeSection: {
+    marginTop: SIZES.padding.xxxlarge,
+    marginBottom: SIZES.padding.xxxxlarge,
+  },
+  welcomeTitle: {
+    fontSize: SIZES.font.xxlarge,
+    fontFamily: "Poppins-Bold",
+    color: COLORS.text,
+    marginBottom: SIZES.padding.medium,
+  },
+  welcomeSubtitle: {
     fontSize: SIZES.font.medium,
     fontFamily: "Poppins-Regular",
-    color: COLORS.authTextSecondary,
-    marginBottom: SIZES.padding.medium,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
+  errorContainer: {
+    backgroundColor: COLORS.LightRed,
+    borderRadius: SIZES.radius.medium,
+    paddingHorizontal: SIZES.padding.xlarge,
+    paddingVertical: SIZES.padding.medium,
+    marginBottom: SIZES.padding.large,
+    borderLeftWidth: 3,
+    borderLeftColor: "#FF3B30",
+  },
+  errorText: {
+    fontSize: SIZES.font.medium,
+    fontFamily: "Poppins-Medium",
+    color: "#FF3B30",
     textAlign: "center",
   },
-  socialAuth: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: SIZES.padding.medium,
+  formSection: {
+    marginBottom: SIZES.padding.xxxxlarge,
+  },
+  forgotPassword: {
+    color: COLORS.primary,
+    fontSize: SIZES.font.medium,
+    fontFamily: "Poppins-Medium",
+    textAlign: "right",
+    marginTop: SIZES.padding.large,
+  },
+  signInButton: {
+    marginBottom: SIZES.padding.xxxxlarge,
   },
   separator: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: SIZES.padding.large,
+    marginTop: SIZES.padding.xxlarge,
+    marginBottom: SIZES.padding.large,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: COLORS.divider,
   },
   separatorText: {
-    color: COLORS.authTextSecondary,
-    fontSize: SIZES.font.large,
+    fontSize: SIZES.font.small,
     fontFamily: "Poppins-Regular",
-    marginHorizontal: SIZES.padding.large,
+    color: COLORS.textSecondary,
+    marginHorizontal: SIZES.padding.xlarge,
   },
-  form: {
-    marginTop: SIZES.padding.medium,
+  signUpSection: {
+    alignItems: "center",
   },
-  forgotPassword: {
-    color: COLORS.authTextSecondary,
-    fontSize: SIZES.font.medium,
-    fontFamily: "Poppins-SemiBold",
-    textAlign: "right",
-    marginBottom: SIZES.padding.xxxlarge,
-  },
-  signUpButton: {
-    marginTop: SIZES.padding.xxlarge,
-  },
-  loginPrompt: {
-    marginTop: SIZES.padding.medium,
-    color: COLORS.authTextSecondary,
+  signUpPrompt: {
     fontSize: SIZES.font.medium,
     fontFamily: "Poppins-Regular",
+    color: COLORS.textSecondary,
     textAlign: "center",
   },
-  SignUpLink: {
+  signUpLink: {
     color: COLORS.primary,
     fontFamily: "Poppins-SemiBold",
   },

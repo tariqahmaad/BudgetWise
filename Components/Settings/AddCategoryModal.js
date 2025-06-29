@@ -13,6 +13,7 @@ import {
     Platform,
     Keyboard,
     FlatList,
+    Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -26,6 +27,7 @@ import {
 } from '../../firebase/firebaseConfig'; // Adjust path if needed
 import SelectionModal from '../SelectionModel'; // Adjust path if needed
 import { COLORS, DEFAULT_CATEGORY_COLORS, SIZES, SHADOWS } from '../../constants/theme'; // Adjust path if needed
+import { useCurrency } from '../../contexts/CurrencyContext';
 
 // Common icon suggestions for categories
 const SUGGESTED_ICONS = [
@@ -65,6 +67,7 @@ const getLabelFromValue = (options, value) => {
 };
 
 const AddCategoryModal = ({ isVisible, onClose, user }) => {
+    const { formatAmount } = useCurrency();
     const [isLoading, setIsLoading] = useState(false);
     const [isCategoryColorModalVisible, setCategoryColorModalVisible] = useState(false);
     const [categoryName, setCategoryName] = useState('');
@@ -108,16 +111,47 @@ const AddCategoryModal = ({ isVisible, onClose, user }) => {
         setSelectedIconIndex(index);
     };
 
-    // --- Duplicate Name Check ---
+    // --- Enhanced Duplicate Name Check with case-insensitive matching ---
     const checkDuplicateCategory = async (name) => {
-        if (!user) return false;
-        const trimmedName = name.trim();
+        if (!user || !name) return true; // Fail safe
+
+        // Normalize the category name: trim whitespace and convert to lowercase for comparison
+        const normalizedName = name.trim();
+        const lowerCaseName = normalizedName.toLowerCase();
+
+        if (!normalizedName) return true; // Empty name is considered duplicate
+
         const categoriesRef = collection(firestore, "users", user.uid, "categories");
-        const q = query(categoriesRef, where("name", "==", trimmedName));
 
         try {
-            const querySnapshot = await getDocs(q);
-            return !querySnapshot.empty;
+            // Get all categories for this user to perform comprehensive checking
+            const allCategoriesSnapshot = await getDocs(categoriesRef);
+
+            // Check for any matching category using various field names and case-insensitive comparison
+            for (const categoryDoc of allCategoriesSnapshot.docs) {
+                const data = categoryDoc.data();
+
+                // Check multiple possible field names that might contain the category name
+                const fieldsToCheck = [
+                    data.name,
+                    data.label,
+                    data.Category,
+                    data.categoryName
+                ];
+
+                for (const fieldValue of fieldsToCheck) {
+                    if (fieldValue && typeof fieldValue === 'string') {
+                        const normalizedFieldValue = fieldValue.trim().toLowerCase();
+                        if (normalizedFieldValue === lowerCaseName) {
+                            console.log(`[Modal Category Check] Found existing category: "${fieldValue}" matches "${name}"`);
+                            return true; // Duplicate found
+                        }
+                    }
+                }
+            }
+
+            console.log(`[Modal Category Check] No existing category found for: "${name}"`);
+            return false; // No duplicate found
         } catch (error) {
             console.error("Error checking for duplicate category:", error);
             return true; // Fail safe - assume duplicate on error
@@ -150,21 +184,32 @@ const AddCategoryModal = ({ isVisible, onClose, user }) => {
         setIsLoading(true);
 
         try {
-            // Check for duplicate category name
+            // Check for duplicate category name (case-insensitive)
             const isDuplicate = await checkDuplicateCategory(trimmedName);
             if (isDuplicate) {
-                setCategoryNameError(`A category named "${trimmedName}" already exists.`);
+                setCategoryNameError(`A category with this name already exists.`);
                 nameInputRef.current?.focus();
                 setIsLoading(false);
                 return;
             }
 
+            // Use proper case formatting for consistency
+            const properCaseName = trimmedName
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join(' ');
+
             const categoryData = {
                 userId: user.uid,
-                name: trimmedName,
-                iconName: categoryIcon,
-                backgroundColor: categoryColor,
+                name: properCaseName,          // Primary identifier (properly formatted)
+                iconName: categoryIcon,        // Selected icon
+                backgroundColor: categoryColor, // Selected color
                 createdAt: serverTimestamp(),
+                // Extra fields for compatibility with different parts of the app
+                label: properCaseName,         // Some code might look for this
+                Category: properCaseName,      // For compatibility with HomeScreen
+                amount: formatAmount(0),      // Initialize with zero amount
+                description: "No spending yet" // Default description
             };
 
             await addDoc(collection(firestore, "users", user.uid, "categories"), categoryData);

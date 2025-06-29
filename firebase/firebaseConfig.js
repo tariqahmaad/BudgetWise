@@ -17,7 +17,9 @@ import {
   getDocs,
   serverTimestamp,
   addDoc,
-  onSnapshot
+  onSnapshot,
+  Timestamp,
+  increment
 } from "firebase/firestore";
 
 // Your web app's Firebase configuration
@@ -59,7 +61,9 @@ export {
   getDocs,
   serverTimestamp,
   addDoc,
-  onSnapshot
+  onSnapshot,
+  Timestamp,
+  increment
 };
 
 // Export the app instance as default

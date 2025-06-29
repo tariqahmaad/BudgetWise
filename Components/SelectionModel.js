@@ -1,5 +1,5 @@
 // Components/SelectionModal.js
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 import {
     Modal,
     View,
@@ -10,15 +10,59 @@ import {
     SafeAreaView,
     Dimensions,
     Platform,
+    Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// Import correct constants from theme
-import { COLORS, SIZES, SHADOWS } from '../constants/theme'; // Adjust path if needed
+import { COLORS, SIZES, SHADOWS } from '../constants/theme';
 
 const { height } = Dimensions.get('window');
 
 // Wrap component with React.memo for performance optimization
 const SelectionModal = React.memo(({ isVisible, options, selectedValue, onSelect, onClose, title }) => {
+
+    // Animation refs
+    const backdropOpacity = useRef(new Animated.Value(0)).current;
+    const modalTranslateY = useRef(new Animated.Value(500)).current;
+
+    useEffect(() => {
+        if (isVisible) {
+            // Animate modal in
+            Animated.parallel([
+                Animated.timing(backdropOpacity, {
+                    toValue: 1,
+                    duration: 300,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(modalTranslateY, {
+                    toValue: 0,
+                    duration: 350,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        } else {
+            // Reset animation values when modal becomes invisible
+            backdropOpacity.setValue(0);
+            modalTranslateY.setValue(500);
+        }
+    }, [isVisible, backdropOpacity, modalTranslateY]);
+
+    const handleClose = () => {
+        // Animate modal out
+        Animated.parallel([
+            Animated.timing(backdropOpacity, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+            }),
+            Animated.timing(modalTranslateY, {
+                toValue: 500,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            onClose();
+        });
+    };
 
     // Wrap renderItem with useCallback to optimize FlatList performance
     const renderItem = useCallback(({ item }) => {
@@ -32,7 +76,7 @@ const SelectionModal = React.memo(({ isVisible, options, selectedValue, onSelect
                 onPress={() => {
                     onSelect(item.value);
                     // Decide whether to close the modal immediately upon selection:
-                    onClose(); // <-- UNCOMMENTED: Now closes modal after selecting an item.
+                    handleClose(); // <-- Use animated close instead of direct onClose
                 }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: isSelected }}
@@ -57,37 +101,46 @@ const SelectionModal = React.memo(({ isVisible, options, selectedValue, onSelect
                 )}
             </TouchableOpacity>
         );
-    }, [selectedValue, onSelect, title, onClose]); // Add necessary dependencies
+    }, [selectedValue, onSelect, title, handleClose]); // Updated dependencies
 
     // Constant for close button size
     const CLOSE_BUTTON_SIZE = 28; // Keep specific size as it's not directly in SIZES
 
     return (
         <Modal
-            animationType="slide"
+            animationType="none"
             transparent={true}
             visible={isVisible}
-            onRequestClose={onClose}
+            onRequestClose={handleClose}
             statusBarTranslucent={true} // Match DropUpMenu behaviour
         >
-            <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPressOut={onClose} // Close when tapping outside
-                accessibilityLabel="Close modal"
-                accessibilityRole="button"
+            <Animated.View
+                style={[
+                    styles.modalOverlay,
+                    { opacity: backdropOpacity }
+                ]}
             >
+                <TouchableOpacity
+                    style={StyleSheet.absoluteFillObject}
+                    activeOpacity={1}
+                    onPress={handleClose} // Close when tapping outside
+                    accessibilityLabel="Close modal"
+                    accessibilityRole="button"
+                />
                 {/* SafeAreaView ensures content avoids notches/system areas */}
                 <SafeAreaView style={styles.safeArea}>
                     {/* Use View and onStartShouldSetResponder to prevent taps inside closing the modal */}
-                    <View
-                        style={styles.modalContent}
+                    <Animated.View
+                        style={[
+                            styles.modalContent,
+                            { transform: [{ translateY: modalTranslateY }] }
+                        ]}
                         onStartShouldSetResponder={() => true} // Prevents taps bubbling to overlay
                     >
                         <View style={styles.header}>
                             <Text style={styles.modalTitle}>{title || 'Select an Option'}</Text>
                             <TouchableOpacity
-                                onPress={onClose}
+                                onPress={handleClose}
                                 style={styles.closeButton}
                                 accessibilityRole="button"
                                 accessibilityLabel="Close"
@@ -111,9 +164,9 @@ const SelectionModal = React.memo(({ isVisible, options, selectedValue, onSelect
                         // maxToRenderPerBatch={10}
                         // windowSize={10}
                         />
-                    </View>
+                    </Animated.View>
                 </SafeAreaView>
-            </TouchableOpacity>
+            </Animated.View>
         </Modal>
     );
 });
@@ -127,21 +180,24 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.5)', // Use explicit rgba as COLORS.backdrop doesn't exist
+        backgroundColor: 'rgba(0, 0, 0, 0.4)', // More subtle backdrop
     },
     safeArea: {
         backgroundColor: 'transparent', // Ensure safe area doesn't have its own background
     },
     modalContent: {
         backgroundColor: COLORS.white,
-        borderTopLeftRadius: SIZES.radius.large, // Use SIZES.radius.large
-        borderTopRightRadius: SIZES.radius.large, // Use SIZES.radius.large
+        borderTopLeftRadius: 20, // More modern radius
+        borderTopRightRadius: 20, // More modern radius
         paddingHorizontal: SIZES.padding.xlarge, // Use SIZES.padding.xlarge
         paddingTop: SIZES.padding.xlarge, // Use SIZES.padding.xlarge
         paddingBottom: SIZES.padding.xxlarge, // Use SIZES.padding.xxlarge for bottom spacing
         maxHeight: height * 0.6,
-        ...SHADOWS.small, // Use predefined small shadow
-        elevation: 5, // Add elevation for Android shadow consistency
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 15, // Better elevation for Android
     },
     header: {
         flexDirection: 'row',

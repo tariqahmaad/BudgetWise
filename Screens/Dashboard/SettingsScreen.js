@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -13,22 +13,19 @@ import {
   Switch,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
-import AddAccountModal from '../../Components/Settings/AddAccountModal';
-import AddCategoryModal from '../../Components/Settings/AddCategoryModal';
 import {
   auth,
   firestore,
   collection,
   getDocs,
-  deleteDoc,
-  doc,
 } from "../../firebase/firebaseConfig";
-import { COLORS } from "../../constants/theme";
+import { COLORS, SIZES } from "../../constants/theme";
 import ScreenWrapper from "../../Components/ScreenWrapper";
 import NavigationBar from "../../Components/NavBar/NavigationBar";
 import SettingListItem from "../../Components/Common/SettingListItem";
+import { deleteUserAccount } from "../../utils/deleteAccount";
 
 const SettingsScreen = () => {
   const navigation = useNavigation();
@@ -36,11 +33,8 @@ const SettingsScreen = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
-  const [isAddAccountModalVisible, setIsAddAccountModalVisible] = useState(false);
-  const [isAddCategoryModalVisible, setIsAddCategoryModalVisible] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [accounts, setAccounts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const user = auth.currentUser;
 
@@ -53,87 +47,112 @@ const SettingsScreen = () => {
     }).start();
   }, []);
 
-  useEffect(() => {
-    if (user) fetchAccountsAndCategories();
-  }, [user]);
-
-  const fetchAccountsAndCategories = useCallback(async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       const accountsRef = collection(firestore, "users", user.uid, "accounts");
-      const categoriesRef = collection(firestore, "users", user.uid, "categories");
+      const accountsSnapshot = await getDocs(accountsRef);
 
-      const [accountsSnapshot, categoriesSnapshot] = await Promise.all([
-        getDocs(accountsRef),
-        getDocs(categoriesRef),
-      ]);
-
-      setAccounts(accountsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setCategories(categoriesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setAccounts(
+        accountsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+      );
     } catch (error) {
-      console.error("Error fetching data:", error);
+      console.error("Error fetching accounts:", error);
     }
   }, [user]);
 
-  const confirmDelete = useCallback((type, id) => {
-    Alert.alert(
-      `Delete ${type}`,
-      `Are you sure you want to delete this ${type.toLowerCase()}? This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => handleDelete(type, id),
-        },
-      ]
-    );
-  }, []);
+  useEffect(() => {
+    if (user) fetchAccounts();
+  }, [user, fetchAccounts]);
 
-  const handleDelete = useCallback(async (type, id) => {
-    try {
-      setIsLoading(true);
-      await deleteDoc(doc(firestore, "users", user.uid, type === 'Account' ? "accounts" : "categories", id));
-      await fetchAccountsAndCategories();
-    } catch (error) {
-      console.error(`Error deleting ${type.toLowerCase()}:`, error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user, fetchAccountsAndCategories]);
+  // Refresh accounts when screen comes into focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (user) fetchAccounts();
+    });
+
+    return unsubscribe;
+  }, [navigation, user, fetchAccounts]);
 
   const handleSignOut = useCallback(() => {
+    Alert.alert("Confirm Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          setIsSigningOut(true);
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error("Sign out error:", error);
+            Alert.alert("Sign Out Error", error.message);
+          } finally {
+            setIsSigningOut(false);
+          }
+        },
+      },
+    ]);
+  }, []);
+
+  const handleDeleteAccount = useCallback(() => {
     Alert.alert(
-      "Confirm Sign Out",
-      "Are you sure you want to sign out?",
+      "Delete Account",
+      "WARNING: This action cannot be undone!\n\nDeleting your account will permanently remove:\n• All your financial data\n• Account information\n• Transaction history\n• Categories and settings\n\nAre you absolutely sure you want to delete your account?",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Sign Out",
+          text: "Delete Forever",
           style: "destructive",
-          onPress: async () => {
-            setIsSigningOut(true);
-            try {
-              await signOut(auth);
-            } catch (error) {
-              console.error("Sign out error:", error);
-              Alert.alert("Sign Out Error", error.message);
-            } finally {
-              setIsSigningOut(false);
-            }
-          },
+          onPress: () => confirmAccountDeletion(),
         },
       ]
     );
   }, []);
 
-  const accountIcon = useCallback((type) => {
-    switch (type) {
-      case 'balance': return 'wallet-outline';
-      case 'income_tracker': return 'trending-up-outline';
-      case 'savings_goal': return 'save-outline';
-      default: return 'wallet-outline';
-    }
+  const confirmAccountDeletion = useCallback(() => {
+    Alert.alert(
+      "Final Confirmation",
+      "This is your last chance to cancel.\n\nAll your data will be permanently deleted and cannot be recovered.\n\nAre you really sure you want to proceed?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Yes, Delete My Account",
+          style: "destructive",
+          onPress: () => executeAccountDeletion(),
+        },
+      ]
+    );
   }, []);
+
+  const executeAccountDeletion = useCallback(async () => {
+    if (!user) {
+      Alert.alert("Error", "No user found to delete");
+      return;
+    }
+
+    setIsDeletingAccount(true);
+
+    try {
+      await deleteUserAccount(user);
+      // User will be automatically signed out and redirected to auth screens
+      // No need to handle navigation as the auth state change will handle it
+    } catch (error) {
+      console.error("Account deletion error:", error);
+      let errorMessage = "Failed to delete account. Please try again.";
+
+      if (error.code === "auth/requires-recent-login") {
+        errorMessage =
+          "For security reasons, please sign out and sign back in, then try deleting your account again.";
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage =
+          "Network error. Please check your internet connection and try again.";
+      }
+
+      Alert.alert("Deletion Failed", errorMessage);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }, [user]);
 
   const SectionHeader = ({ title }) => (
     <Text style={styles.sectionHeader}>{title}</Text>
@@ -144,17 +163,9 @@ const SettingsScreen = () => {
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={24} color="#000" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <TouchableOpacity style={styles.headerButton} onPress={handleSignOut} disabled={isSigningOut}>
-            {isSigningOut ? (
-              <ActivityIndicator size="small" color={COLORS.danger} />
-            ) : (
-              <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
-            )}
-          </TouchableOpacity>
+          <View style={styles.centerContainer}>
+            <Text style={styles.headerTitle}>Settings</Text>
+          </View>
         </View>
 
         <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
@@ -163,129 +174,165 @@ const SettingsScreen = () => {
             contentContainerStyle={styles.scrollContentContainer}
             showsVerticalScrollIndicator={false}
           >
-            {/* Testing */}
-            <SectionHeader title="Testing" />
+            {/* Profile & General */}
+            <SectionHeader title="Profile & General" />
+            <View style={styles.settingsGroup}>
+              <SettingListItem
+                icon="person-outline"
+                iconColor="#007AFF"
+                title="My Profile"
+                onPress={() => navigation.navigate("Profile")}
+              />
+              <SettingListItem
+                icon="card-outline"
+                iconColor="#FF9500"
+                title="Currency"
+                subtitle="Choose your preferred currency"
+                onPress={() => navigation.navigate("CurrencySelection")}
+                rightIcon="chevron-forward-outline"
+              />
+              <Text style={styles.settingDescription}>
+                Manage your personal information, account preferences, and
+                currency settings
+              </Text>
+            </View>
+
+            {/* Financial Management */}
+            <SectionHeader title="Financial Management" />
             <View style={styles.settingsGroup}>
               <SettingListItem
                 icon="wallet-outline"
-                iconColor="#4285F4"
-                title="Add Account"
-                onPress={() => setIsAddAccountModalVisible(true)}
+                iconColor="#34C759"
+                title="Manage Accounts"
+                subtitle={`${accounts.length} of 3 accounts created`}
+                onPress={() => navigation.navigate("ManageAccounts")}
+                rightIcon="chevron-forward-outline"
               />
               <SettingListItem
-                icon="grid-outline"
-                iconColor="#EA4335"
-                title="Add Category"
-                onPress={() => setIsAddCategoryModalVisible(true)}
+                icon="receipt-outline"
+                iconColor="#FF9500"
+                title="Manage Transactions"
+                subtitle="Edit or delete transaction history"
+                onPress={() => navigation.navigate("ManageTransactions")}
+                rightIcon="chevron-forward-outline"
               />
+              <Text style={styles.settingDescription}>
+                View and manage your financial accounts and transaction history
+              </Text>
             </View>
 
-            {/* Accounts */}
-            <SectionHeader title="Accounts" />
-            <View style={styles.settingsGroup}>
-              {accounts.length === 0 ? (
-                <Text style={styles.emptyText}>No accounts added yet.</Text>
-              ) : accounts.map((acc) => (
-                <SettingListItem
-                  key={acc.id}
-                  icon={accountIcon(acc.type)}
-                  iconColor="#FDB347"
-                  title={acc.title}
-                  onPress={() => confirmDelete('Account', acc.id)}
-                  rightIcon="trash-outline"
-                />
-              ))}
-            </View>
-
-            {/* Categories */}
-            <SectionHeader title="Categories" />
-            <View style={styles.settingsGroup}>
-              {categories.length === 0 ? (
-                <Text style={styles.emptyText}>No categories added yet.</Text>
-              ) : categories.map((cat) => (
-                <SettingListItem
-                  key={cat.id}
-                  icon={cat.iconName}
-                  iconColor="#FDB347"
-                  title={cat.name}
-                  onPress={() => confirmDelete('Category', cat.id)}
-                  rightIcon="trash-outline"
-                />
-              ))}
-            </View>
-
-            {/* General */}
-            <SectionHeader title="General" />
-            <View style={styles.settingsGroup}>
-              <SettingListItem
-                icon="language-outline"
-                title="Language"
-                onPress={() => Alert.alert("Language", "Navigate to Language Selection")}
-                rightComponent={<Text style={styles.settingValue}>English</Text>}
-              />
-              <SettingListItem
-                icon="person-outline"
-                title="My Profile"
-                onPress={() => navigation.navigate('Profile')}
-              />
-              <SettingListItem
-                icon="mail-outline"
-                title="Contact Us"
-                onPress={() => Alert.alert("Contact Us", "Show Contact Info")}
-              />
-            </View>
-
-            {/* Security */}
-            <SectionHeader title="Security" />
+            {/* Security & Privacy */}
+            <SectionHeader title="Security & Privacy" />
             <View style={styles.settingsGroup}>
               <SettingListItem
                 icon="lock-closed-outline"
+                iconColor="#FF3B30"
                 title="Change Password"
-                onPress={() => Alert.alert("Password", "Navigate to Change Password")}
+                onPress={() => navigation.navigate("ChangePassword")}
+              />
+              <Text style={styles.settingDescription}>
+                Secure your account with password changes and privacy settings
+              </Text>
+            </View>
+
+            {/* Support & About */}
+            <SectionHeader title="Support & About" />
+            <View style={styles.settingsGroup}>
+              <SettingListItem
+                icon="help-circle-outline"
+                iconColor="#007AFF"
+                title="Help & Support"
+                subtitle="Get help, contact us, and learn more"
+                onPress={() => navigation.navigate("Support")}
+                rightIcon="chevron-forward-outline"
               />
               <SettingListItem
-                icon="document-text-outline"
-                title="Privacy Policy"
-                onPress={() => Alert.alert("Privacy", "Navigate to Privacy Policy")}
+                icon="information-circle-outline"
+                iconColor="#34C759"
+                title="About BudgetWise"
+                subtitle="App version and credits"
+                onPress={() => navigation.navigate("About")}
+                rightIcon="chevron-forward-outline"
               />
-              <Text style={styles.settingDescription}>Choose what data you share with us</Text>
+              <Text style={styles.settingDescription}>
+                Access help resources, contact support, and learn about the
+                development team
+              </Text>
+            </View>
+
+            {/* Account Actions */}
+            <SectionHeader title="Account Actions" />
+            <View style={styles.settingsGroup}>
               <SettingListItem
-                icon="finger-print-outline"
-                title="Biometric"
-                rightComponent={
-                  <Switch
-                    trackColor={{ false: '#E9E9EA', true: '#007AFF' }}
-                    thumbColor="#FFFFFF"
-                    ios_backgroundColor="#E9E9EA"
-                    value={isBiometricEnabled}
-                    onValueChange={setIsBiometricEnabled}
-                  />
+                icon="log-out-outline"
+                iconColor="#FF3B30"
+                title="Sign Out"
+                subtitle={
+                  isSigningOut ? "Signing out..." : "Sign out of your account"
                 }
+                onPress={handleSignOut}
+                rightComponent={
+                  isSigningOut ? (
+                    <ActivityIndicator size="small" color="#FF3B30" />
+                  ) : null
+                }
+                disabled={isSigningOut}
               />
+              <Text style={styles.settingDescription}>
+                Sign out of your BudgetWise account on this device
+              </Text>
+            </View>
+
+            {/* Danger Zone */}
+            <SectionHeader title="Danger Zone" />
+            <View style={styles.dangerZoneGroup}>
+              <SettingListItem
+                icon="trash-outline"
+                iconColor="#FF3B30"
+                iconBackgroundColor="#FFE5E5"
+                title="Delete Account"
+                subtitle={
+                  isDeletingAccount
+                    ? "Deleting account..."
+                    : "Permanently delete your account and all data"
+                }
+                onPress={handleDeleteAccount}
+                rightComponent={
+                  isDeletingAccount ? (
+                    <ActivityIndicator size="small" color="#FF3B30" />
+                  ) : (
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color="#FF3B30"
+                    />
+                  )
+                }
+                disabled={isDeletingAccount}
+                titleStyle={styles.dangerTitle}
+                subtitleStyle={styles.dangerSubtitle}
+                itemStyle={styles.dangerItemStyle}
+              />
+              <Text style={styles.settingDescription}>
+                This action cannot be undone and will remove all your data
+                permanently
+              </Text>
             </View>
           </ScrollView>
         </Animated.View>
 
         {/* Loading overlay during delete */}
-        {isLoading && (
+        {isDeletingAccount && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+              <Text style={styles.loadingText}>Deleting your account...</Text>
+              <Text style={styles.loadingSubtext}>
+                This may take a few moments
+              </Text>
+            </View>
           </View>
         )}
-
-        <AddAccountModal
-          isVisible={isAddAccountModalVisible}
-          onClose={() => setIsAddAccountModalVisible(false)}
-          user={user}
-          setIsLoading={setIsLoading}
-          isLoading={isLoading}
-        />
-
-        <AddCategoryModal
-          isVisible={isAddCategoryModalVisible}
-          onClose={() => setIsAddCategoryModalVisible(false)}
-          user={user}
-        />
 
         <NavigationBar />
       </View>
@@ -294,42 +341,46 @@ const SettingsScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'ios' ? 50 : 20,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+  container: {
+    flex: 1,
     backgroundColor: COLORS.white,
   },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F2F2F7',
-    justifyContent: 'center',
-    alignItems: 'center',
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: Platform.OS === "ios" ? 50 : 20,
+    paddingHorizontal: SIZES.padding.xxlarge,
+    paddingVertical: SIZES.padding.large,
+    backgroundColor: COLORS.white,
+  },
+  centerContainer: {
+    flex: 1,
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: "Poppins-SemiBold",
-    color: '#000',
+    color: "#000",
   },
-  content: { flex: 1, paddingHorizontal: 16 },
-  scrollContentContainer: { paddingTop: 20, paddingBottom: 80 },
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+  },
+  scrollContentContainer: {
+    paddingTop: 8,
+    paddingBottom: 80,
+  },
   sectionHeader: {
     fontSize: 16,
     fontFamily: "Poppins-Medium",
-    color: '#8E8E93',
-    marginTop: 24,
+    color: "#8E8E93",
+    marginTop: 16,
     marginBottom: 8,
   },
   settingsGroup: {
     backgroundColor: COLORS.white,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
@@ -337,33 +388,75 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingVertical: 4,
   },
+  dangerZoneGroup: {
+    backgroundColor: COLORS.white,
+    borderRadius: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+    marginBottom: 20,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#FFE5E5",
+  },
   settingDescription: {
     fontSize: 13,
     fontFamily: "Poppins-Regular",
-    color: '#8E8E93',
+    color: "#8E8E93",
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 4,
   },
-  settingValue: {
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    color: '#8E8E93',
-    marginRight: 8,
+  dangerTitle: {
+    color: "#FF3B30",
+    fontFamily: "Poppins-Medium",
   },
-  emptyText: {
-    fontSize: 14,
-    fontFamily: "Poppins-Regular",
-    color: '#8E8E93',
-    padding: 16,
-    textAlign: 'center',
+  dangerSubtitle: {
+    color: "#FF6B6B",
+    fontSize: 13,
+  },
+  dangerItemStyle: {
+    backgroundColor: "rgba(255, 59, 48, 0.02)",
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 200,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: COLORS.text,
+    fontFamily: "Poppins-Medium",
+    textAlign: "center",
+  },
+  loadingSubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontFamily: "Poppins-Regular",
+    textAlign: "center",
   },
 });
 

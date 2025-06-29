@@ -31,11 +31,11 @@ const NavigationBar = () => {
     const handleMenuOptionPress = (option) => {
         switch (option) {
             case 'Add Transactions':
-                navigation.navigate('AddTransaction');
+                navigation.navigate('addTransaction');
                 setIsMenuVisible(false);
                 break;
             case 'Debt Tracking':
-                navigation.navigate('DebtTracking');
+                navigation.navigate('debtTracking');
                 setIsMenuVisible(false);
                 break;
             default:
