@@ -1,0 +1,44 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Dashboard HomeScreen Structure and Logic
+
+## Main Entry Point
+- The main dashboard view is implemented in [HomeScreen.js](mdc:Screens/Dashboard/HomeScreen.js).
+
+## Key Components Used
+- [MainCard.js](mdc:Components/CategoryCards/MainCard.js): Displays account/balance/income/savings cards.
+- [SubCard.js](mdc:Components/CategoryCards/SubCard.js): Displays category spending cards.
+- [NavigationBar.js](mdc:Components/NavBar/NavigationBar.js): Bottom navigation bar.
+- [ScreenWrapper.js](mdc:Components/ScreenWrapper.js): Provides background and layout wrapper.
+
+## Constants and Theme
+- [theme.js](mdc:constants/theme.js): Provides COLORS and CATEGORY_ICONS used for styling and icon mapping.
+- [Images.js](mdc:constants/Images.js): Default images, including profile avatar.
+
+## Data and State Management
+- Uses Firebase (see [firebaseConfig.js](mdc:firebase/firebaseConfig.js)) for:
+  - User authentication (`auth`)
+  - Firestore collections for accounts, categories, transactions, and friends
+- State is managed with React hooks (`useState`, `useEffect`, `useMemo`, `useCallback`).
+- Real-time updates via Firestore `onSnapshot` for all user data collections.
+
+## Main UI Sections
+- **Profile Section**: Shows user avatar and name (from Firestore user doc).
+- **Main Cards**: Horizontally scrollable cards for accounts, income trackers, and savings goals.
+- **Friends List**: Horizontally scrollable, with add-friend modal.
+- **Spending Categories**: Horizontally scrollable category cards, with spending totals calculated from transactions.
+- **Transaction History**: Vertical list of recent transactions, sorted by date.
+
+## Navigation
+- Navigates to Profile, Add Debt, and (TODO) Friends/Categories/Transactions lists.
+
+## Styling
+- Uses a large StyleSheet at the bottom of [HomeScreen.js](mdc:Screens/Dashboard/HomeScreen.js) for layout and color consistency.
+
+## Notes
+- All data is user-specific, loaded from subcollections under the user's Firestore document.
+- Handles loading and empty states for all major sections.
+- Modal for adding friends is managed locally in HomeScreen state.

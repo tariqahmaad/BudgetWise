@@ -1,23 +1,51 @@
 import { StyleSheet, View, TouchableOpacity } from 'react-native'
-import React from 'react'
+import React, { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { useNavigation, useNavigationState } from '@react-navigation/native'
 import { COLORS, SIZES, NAV_ITEMS } from '../../constants/theme'
+import DropUpMenu from './DropUpMenu'
 
 const NavigationBar = () => {
     const navigation = useNavigation();
     const currentRoute = useNavigationState(state => state?.routes[state.index]?.name);
+    const [isMenuVisible, setIsMenuVisible] = useState(false);
 
     const handlePress = (routeName) => {
         if (routeName === 'Add') {
-            console.log('Add button pressed');
+            setIsMenuVisible(true);
             return;
         }
-        navigation.navigate(routeName);
+
+        // Get the current navigator state
+        const state = navigation.getState();
+
+        // If we're in the AuthStack, navigate to DashboardStack first
+        if (state.routes[0].name === 'Home') {
+            navigation.navigate('Dashboard', { screen: routeName });
+
+        } else {
+            navigation.navigate(routeName);
+        }
+    };
+
+    const handleMenuOptionPress = (option) => {
+        switch (option) {
+            case 'Add Transactions':
+                navigation.navigate('addTransaction');
+                setIsMenuVisible(false);
+                break;
+            case 'Debt Tracking':
+                navigation.navigate('debtTracking');
+                setIsMenuVisible(false);
+                break;
+            default:
+                console.log('Unknown option:', option);
+                setIsMenuVisible(false);
+        }
     };
 
     const getIconProps = ({ name, icon, isAddButton }) => {
-        const isActive = currentRoute === name;
+        const isActive = currentRoute === name || (currentRoute === 'Home' && name === 'HomeScreen');
         return {
             name: isActive ? icon : `${icon}-outline`,
             color: isAddButton ? COLORS.white : (isActive ? COLORS.active : COLORS.inactive),
@@ -32,7 +60,10 @@ const NavigationBar = () => {
         return (
             <TouchableOpacity
                 key={name}
-                style={isAddButton ? styles.addButton : styles.iconContainer}
+                style={[
+                    isAddButton ? styles.addButton : styles.iconContainer,
+                    currentRoute === name && !isAddButton && styles.activeIconContainer
+                ]}
                 onPress={() => handlePress(name)}
             >
                 <Ionicons {...iconProps} />
@@ -41,11 +72,18 @@ const NavigationBar = () => {
     };
 
     return (
-        <View style={styles.overlay}>
-            <View style={styles.container}>
-                {NAV_ITEMS.map(renderNavItem)}
+        <>
+            <View style={styles.overlay}>
+                <View style={styles.container}>
+                    {NAV_ITEMS.map(renderNavItem)}
+                </View>
             </View>
-        </View>
+            <DropUpMenu
+                visible={isMenuVisible}
+                onClose={() => setIsMenuVisible(false)}
+                onOptionPress={handleMenuOptionPress}
+            />
+        </>
     );
 };
 
@@ -72,6 +110,7 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         padding: SIZES.padding.medium,
+        borderRadius: SIZES.radius.medium,
     },
     addButton: {
         backgroundColor: COLORS.active,
