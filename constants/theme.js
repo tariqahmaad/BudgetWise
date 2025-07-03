@@ -52,6 +52,8 @@ export const COLORS = {
   // Add error and warning colors
   error: "#FF3B30",
   warning: "#FFA500",
+  success: "#12B76A",
+  danger: "#FF3B30",
 };
 
 export const SIZES = {

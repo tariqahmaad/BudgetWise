@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EXCHANGE_RATE_API_KEY } from '@env';
+import APIKeyService from './apiKeyService';
 
 class ExchangeRateService {
     constructor() {
-        this.apiKey = EXCHANGE_RATE_API_KEY; // Fallback for development
-        this.baseURL = `https://v6.exchangerate-api.com/v6/${this.apiKey}/latest/`;
-        this.supportedCodesURL = `https://v6.exchangerate-api.com/v6/${this.apiKey}/codes`;
+        this.apiKey = null; // Will be dynamically resolved
+        this.baseURL = 'https://v6.exchangerate-api.com/v6';
         this.cacheKeyPrefix = '@budgetwise_exchange_rates_';
         this.currenciesCache = '@budgetwise_all_currencies';
         this.cacheExpiry = 6 * 60 * 60 * 1000; // 6 hours
@@ -14,6 +14,23 @@ class ExchangeRateService {
             USD: 1, EUR: 0.85, GBP: 0.73, JPY: 110, TRY: 27,
             CAD: 1.25, AUD: 1.35, CHF: 0.92, CNY: 6.4, INR: 74
         };
+    }
+
+    // Get API key dynamically (user-configured or environment fallback)
+    async getAPIKey() {
+        try {
+            const userApiKey = await APIKeyService.getAPIKey('exchangeRate');
+            const apiKey = userApiKey || EXCHANGE_RATE_API_KEY;
+
+            if (!apiKey) {
+                throw new Error('No Exchange Rate API key available. Please configure your API key in Settings > Security & Privacy > API Configuration.');
+            }
+
+            return apiKey;
+        } catch (error) {
+            console.error('[ExchangeRateService] Failed to get API key:', error);
+            throw error;
+        }
     }
 
     async getCachedRates(baseCurrency) {
@@ -56,7 +73,8 @@ class ExchangeRateService {
         }
 
         const currencyCode = baseCurrency.toUpperCase();
-        console.log(`[ExchangeRateService] Fetching rates for ${currencyCode} using API key: ${this.apiKey?.substring(0, 8)}...`);
+        const apiKey = await this.getAPIKey();
+        console.log(`[ExchangeRateService] Fetching rates for ${currencyCode} using API key: ${apiKey?.substring(0, 8)}...`);
 
         // Check cache first
         const cached = await this.getCachedRates(currencyCode);
@@ -69,7 +87,7 @@ class ExchangeRateService {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 8000);
-            const apiUrl = `${this.baseURL}${currencyCode}`;
+            const apiUrl = `${this.baseURL}/${apiKey}/latest/${currencyCode}`;
 
             console.log(`[ExchangeRateService] Making API request to: ${apiUrl}`);
 
@@ -246,12 +264,14 @@ class ExchangeRateService {
 
         // Fetch fresh currencies with timeout
         try {
+            const apiKey = await this.getAPIKey();
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000);
+            const apiUrl = `${this.baseURL}/${apiKey}/codes`;
 
-            console.log(`[ExchangeRateService] Making API request to: ${this.supportedCodesURL}`);
+            console.log(`[ExchangeRateService] Making API request to: ${apiUrl}`);
 
-            const response = await fetch(this.supportedCodesURL, {
+            const response = await fetch(apiUrl, {
                 signal: controller.signal,
                 headers: {
                     'Accept': 'application/json',

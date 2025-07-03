@@ -1,11 +1,46 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_API_KEY } from '@env';
+import APIKeyService from './apiKeyService';
 
-// Initialize the Gemini API
-const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+// Initialize Gemini API with dynamic key resolution
+let genAI = null;
+let currentApiKey = null;
 
-// Get the Gemini Pro model
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite-preview-06-17" });
+const initializeGeminiAPI = async () => {
+    try {
+        // First try to get user-configured API key
+        const userApiKey = await APIKeyService.getAPIKey('gemini');
+        const apiKey = userApiKey || GEMINI_API_KEY;
+
+        if (!apiKey) {
+            throw new Error('No Gemini API key available. Please configure your API key in Settings > Security & Privacy > API Configuration.');
+        }
+
+        // Only reinitialize if the API key has changed
+        if (currentApiKey !== apiKey) {
+            console.log('[Gemini Service] Initializing with', userApiKey ? 'user-configured' : 'environment', 'API key');
+            genAI = new GoogleGenerativeAI(apiKey);
+            currentApiKey = apiKey;
+        }
+
+        return genAI;
+    } catch (error) {
+        console.error('[Gemini Service] Failed to initialize API:', error);
+        throw error;
+    }
+};
+
+// Get the Gemini model with dynamic initialization
+const getModel = async () => {
+    const api = await initializeGeminiAPI();
+
+    // Get user-configured model name or use default
+    const userModelName = await APIKeyService.getAPIKey('geminiModel');
+    const modelName = userModelName || 'gemini-2.5-flash-lite-preview-06-17';
+
+    console.log('[Gemini Service] Using model:', modelName);
+    return api.getGenerativeModel({ model: modelName });
+};
 
 // Retry configuration
 const RETRY_CONFIG = {
@@ -113,6 +148,7 @@ Output a JSON array, where each element is an object with 'date' (string, format
 
         // Call the model with retry logic
         const response = await retryWithBackoff(async () => {
+            const model = await getModel();
             const result = await model.generateContent([
                 { text: prompt },
                 { inlineData: { data: base64Image, mimeType: 'image/jpeg' } }
@@ -199,6 +235,7 @@ Output a JSON array, where each element is an object with 'date' (string, format
 export const generateResponse = async (prompt) => {
     try {
         const response = await retryWithBackoff(async () => {
+            const model = await getModel();
             const result = await model.generateContent(prompt);
             return await result.response;
         }, 'Text generation');
@@ -392,6 +429,7 @@ ${transactionsJson}`;
 
         // Start chat and send the message with context using retry logic
         const response = await retryWithBackoff(async () => {
+            const model = await getModel();
             const chat = model.startChat({ history: historyForChatApi });
             const result = await chat.sendMessage(userMessageWithContext.parts[0].text);
             return await result.response;

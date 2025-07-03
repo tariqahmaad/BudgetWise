@@ -27,6 +27,7 @@ import PrivacyPolicyScreen from "../Screens/Settings/PrivacyPolicyScreen";
 import SupportScreen from "../Screens/Settings/SupportScreen";
 import AboutScreen from "../Screens/Settings/AboutScreen";
 import CurrencySelectionScreen from "../Screens/Settings/CurrencySelectionScreen";
+import APIKeysScreen from "../Screens/Settings/APIKeysScreen";
 import ProfileSetupPage from "../Screens/ProfileSetupPage";
 import { firestore, doc, onSnapshot } from "../firebase/firebaseConfig";
 import { auth } from "../firebase/firebaseConfig";
@@ -86,6 +87,7 @@ const DashboardStack = () => (
       name="CurrencySelection"
       component={CurrencySelectionScreen}
     />
+    <Stack.Screen name="APIKeys" component={APIKeysScreen} />
     <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     <Stack.Screen name="Support" component={SupportScreen} />
     <Stack.Screen name="About" component={AboutScreen} />

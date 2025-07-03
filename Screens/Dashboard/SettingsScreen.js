@@ -225,13 +225,21 @@ const SettingsScreen = () => {
             <SectionHeader title="Security & Privacy" />
             <View style={styles.settingsGroup}>
               <SettingListItem
+                icon="key-outline"
+                iconColor="#007AFF"
+                title="API Configuration"
+                subtitle="Configure your API keys for enhanced features"
+                onPress={() => navigation.navigate("APIKeys")}
+                rightIcon="chevron-forward-outline"
+              />
+              <SettingListItem
                 icon="lock-closed-outline"
                 iconColor="#FF3B30"
                 title="Change Password"
                 onPress={() => navigation.navigate("ChangePassword")}
               />
               <Text style={styles.settingDescription}>
-                Secure your account with password changes and privacy settings
+                Secure your account with password changes, API key management, and privacy settings
               </Text>
             </View>
 
